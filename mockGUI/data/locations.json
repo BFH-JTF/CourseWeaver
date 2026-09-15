@@ -1,0 +1,14 @@
+[
+  {
+    "_id": "loc-001",
+    "name": "BFH Bern, Brückenstrasse",
+    "campus": "Bern",
+    "building": "Brückenstrasse 73"
+  },
+  {
+    "_id": "loc-002",
+    "name": "BFH Bern, Fellerstrasse",
+    "campus": "Bern",
+    "building": "Fellerstrasse 21"
+  }
+]

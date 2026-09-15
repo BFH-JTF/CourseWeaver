@@ -1,0 +1,62 @@
+[
+  {
+    "_id": "room-001",
+    "name": "Seminarraum 2.14",
+    "room_type": "classroom",
+    "location_id": "loc-001",
+    "floor": 2,
+    "room_number": "2.14",
+    "capacity": {
+      "seats": 30
+    },
+    "accessibility": {
+      "step_free_access": true
+    },
+    "availability": {}
+  },
+  {
+    "_id": "room-002",
+    "name": "Seminarraum 3.05",
+    "room_type": "classroom",
+    "location_id": "loc-001",
+    "floor": 3,
+    "room_number": "3.05",
+    "capacity": {
+      "seats": 24
+    },
+    "accessibility": {
+      "step_free_access": true
+    },
+    "availability": {}
+  },
+  {
+    "_id": "room-003",
+    "name": "Hörsaal 0.02",
+    "room_type": "lecture_hall",
+    "location_id": "loc-002",
+    "floor": 0,
+    "room_number": "0.02",
+    "capacity": {
+      "seats": 80
+    },
+    "accessibility": {
+      "step_free_access": true
+    },
+    "availability": {}
+  },
+  {
+    "_id": "room-004",
+    "name": "Gruppenraum 1.10",
+    "room_type": "classroom",
+    "location_id": "loc-002",
+    "floor": 1,
+    "room_number": "1.10",
+    "capacity": {
+      "seats": 16
+    },
+    "accessibility": {
+      "step_free_access": false
+    },
+    "availability": {}
+  }
+]
