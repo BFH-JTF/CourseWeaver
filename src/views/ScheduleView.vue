@@ -10,22 +10,21 @@
     </v-alert>
 
     <v-card class="mb-6">
-      <v-card-title>CP-SAT Stundenplan (or-tools-wasm)</v-card-title>
+      <v-card-title>CP-SAT Stundenplan – Browser (or-tools-wasm)</v-card-title>
       <v-card-text>
         <p class="text-body-2 mb-3">
-          Echter CP-SAT via WebAssembly (<code>or-tools-wasm/cp-sat</code>). Läuft im Browser mit
-          <code>Cross-Origin-Opener-Policy: same-origin</code> &amp; <code>Cross-Origin-Embedder-Policy: require-corp</code>
-          (siehe <code>vite.config.ts</code>).
+          Legacy: direkter WASM im Browser (COOP/COEP). Dient nur noch als Vergleich; produktiv läuft Solver
+          <strong>serverseitig in Node.js</strong> hinter Interface (siehe neuer Card unten).
         </p>
         <div class="d-flex flex-wrap ga-2 mb-4">
           <v-btn color="primary" :loading="solvingSimple" @click="runSimpleDemo">Simple Demo (desks/tables)</v-btn>
-          <v-btn color="secondary" :loading="solvingTimetable" @click="runTimetableDemo">Stundenplan Demo (6 Blöcke)</v-btn>
+          <v-btn color="secondary" :loading="solvingTimetable" @click="runTimetableDemo">Browser Demo (6 Blöcke)</v-btn>
         </div>
         <v-alert v-if="simpleResult" type="success" variant="tonal" class="mb-3">
           Simple: {{ simpleResult.status }} — desks={{ simpleResult.desks }}, tables={{ simpleResult.tables }}, profit={{ simpleResult.profit }}
         </v-alert>
         <v-alert v-if="timetableResult" :type="timetableResult.status === 'OPTIMAL' || timetableResult.status === 'FEASIBLE' ? 'success' : 'error'" variant="tonal" class="mb-3">
-          Stundenplan: {{ timetableResult.status }} ({{ timetableResult.solveTimeMs }} ms, Obj {{ timetableResult.objectiveValue }})
+          Browser: {{ timetableResult.status }} ({{ timetableResult.solveTimeMs }} ms, Obj {{ timetableResult.objectiveValue }})
         </v-alert>
         <v-table v-if="timetableResult?.assignments?.length" density="compact">
           <thead><tr><th>Block</th><th>Slot (Datum/Periode)</th><th>Raum</th></tr></thead>
@@ -36,6 +35,40 @@
           </tbody>
         </v-table>
         <v-alert v-if="error" type="error" variant="tonal">{{ error }}</v-alert>
+      </v-card-text>
+    </v-card>
+
+    <v-card class="mb-6">
+      <v-card-title>CP-SAT Stundenplan – Server (Node.js, Worker-isoliert)</v-card-title>
+      <v-card-text>
+        <p class="text-body-2 mb-3">
+          Neue Architektur: <code>Domäne → buildSolverInput → OrToolsWasmTimetableSolver</code> (Stufen 1–4) via
+          <code>POST /api/timetable/solve</code>. Solver läuft im Worker Thread, nicht im Request-Handler.
+          Erklärungen via <code>explainSolution</code> je Constraint-ID.
+        </p>
+        <div class="d-flex flex-wrap ga-2 mb-4">
+          <v-btn color="primary" :loading="solvingServer" @click="runServerDemo">Server Demo (6 Module, 4 Räume)</v-btn>
+          <v-btn variant="outlined" :loading="solvingServer" @click="runServerDemoWithSoft">mit Soft-Penalties</v-btn>
+        </div>
+        <v-alert v-if="serverResult" :type="serverResult.status === 'OPTIMAL' || serverResult.status === 'FEASIBLE' ? 'success' : 'error'" variant="tonal" class="mb-3">
+          Server: {{ serverResult.status }} (Solver {{ serverResult.solveTimeMs }} ms, Obj {{ serverResult.objectiveValue }})
+        </v-alert>
+        <v-table v-if="serverResult?.schedule?.length" density="compact">
+          <thead><tr><th>Modul</th><th>Tag</th><th>Raum</th><th>Slots</th></tr></thead>
+          <tbody>
+            <tr v-for="s in serverResult.schedule" :key="s.sessionId">
+              <td>{{ s.moduleName }} ({{ s.moduleId }})</td>
+              <td>{{ s.day.date }} {{ s.day.weekday }}</td>
+              <td>{{ s.room.name }} (Cap {{ s.room.capacity }})</td>
+              <td>{{ s.slotTypes.join('+') }}</td>
+            </tr>
+          </tbody>
+        </v-table>
+        <v-list v-if="serverResult?.explanations?.length" density="compact" class="mt-3">
+          <v-list-subheader>Erklärungen (Constraint-Katalog)</v-list-subheader>
+          <v-list-item v-for="e in serverResult.explanations" :key="e.constraintId" :title="e.constraintId" :subtitle="`${e.category} · ${e.satisfied ? 'erfüllt' : 'verletzt'} · cost ${e.cost} ${e.message ?? ''}`" />
+        </v-list>
+        <v-alert v-if="serverError" type="error" variant="tonal" class="mt-3">{{ serverError }}</v-alert>
       </v-card-text>
     </v-card>
     <v-row>
@@ -70,15 +103,19 @@ import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { solveSimpleDemo, solveTimetable } from '@/composables/useTimetableCpSat'
+import { solveTimetableOnServer } from '@/composables/useTimetableServer'
 
 const store = useCurriculumStore()
 const { semesters, lecturers, rooms } = storeToRefs(store)
 
 const solvingSimple = ref(false)
 const solvingTimetable = ref(false)
+const solvingServer = ref(false)
 const simpleResult = ref<any>(null)
 const timetableResult = ref<any>(null)
+const serverResult = ref<any>(null)
 const error = ref<string | null>(null)
+const serverError = ref<string | null>(null)
 
 function roomName(id: string) {
   return rooms.value.find((r: any) => r._id === id || r.id === id)?.name ?? id
@@ -140,6 +177,74 @@ async function runTimetableDemo() {
     error.value = e.message
   } finally {
     solvingTimetable.value = false
+  }
+}
+
+async function runServerDemo() {
+  solvingServer.value = true
+  serverError.value = null
+  try {
+    const days = [
+      { id: '2028-02-03', date: '2028-02-03', week: 5, weekday: 'Donnerstag' as const, phase: 'main' as const },
+      { id: '2028-02-04', date: '2028-02-04', week: 5, weekday: 'Freitag' as const, phase: 'main' as const },
+      { id: '2028-02-05', date: '2028-02-05', week: 5, weekday: 'Samstag' as const, phase: 'main' as const },
+      { id: '2028-02-10', date: '2028-02-10', week: 6, weekday: 'Donnerstag' as const, phase: 'main' as const },
+      { id: '2028-02-11', date: '2028-02-11', week: 6, weekday: 'Freitag' as const, phase: 'main' as const },
+      { id: '2028-02-12', date: '2028-02-12', week: 6, weekday: 'Samstag' as const, phase: 'main' as const },
+    ]
+    const rooms = [
+      { id: 'room-001', name: 'Seminarraum 2.14', capacity: 30 },
+      { id: 'room-002', name: 'Hörsaal A', capacity: 80 },
+      { id: 'room-003', name: 'Computerlab', capacity: 24 },
+      { id: 'room-004', name: 'Seminarraum 3.01', capacity: 40 },
+    ]
+    const modules = [
+      { id: 'mod-001', name: 'Digital Marketing', program: 'prog-dba', ects: 6 as const, expectedStudents: 25, instructors: ['instr-001'], restrictions: [] },
+      { id: 'mod-002', name: 'Change Management', program: 'prog-dba', ects: 6 as const, expectedStudents: 20, instructors: ['instr-001'], restrictions: [] },
+      { id: 'mod-003', name: 'Cloud Business Models', program: 'prog-dba', ects: 3 as const, expectedStudents: 18, instructors: ['instr-002'], restrictions: [] },
+      { id: 'mod-004', name: 'Live Case Felber', program: 'prog-dba', ects: 6 as const, expectedStudents: 28, instructors: ['instr-003'], restrictions: [] },
+      { id: 'mod-005', name: 'Data-Driven', program: 'prog-dba', ects: 3 as const, expectedStudents: 22, instructors: ['instr-002'], restrictions: [] },
+      { id: 'mod-006', name: 'AI in Business', program: 'prog-dba', ects: 6 as const, expectedStudents: 30, instructors: ['instr-004'], restrictions: [] },
+    ]
+    serverResult.value = await solveTimetableOnServer(modules, days, rooms, { timeLimitSeconds: 10 })
+  } catch (e: any) {
+    serverError.value = e.message
+  } finally {
+    solvingServer.value = false
+  }
+}
+
+async function runServerDemoWithSoft() {
+  solvingServer.value = true
+  serverError.value = null
+  try {
+    const days = [
+      { id: '2028-02-03', date: '2028-02-03', week: 5, weekday: 'Donnerstag' as const, phase: 'main' as const },
+      { id: '2028-02-04', date: '2028-02-04', week: 5, weekday: 'Freitag' as const, phase: 'main' as const },
+      { id: '2028-02-05', date: '2028-02-05', week: 5, weekday: 'Samstag' as const, phase: 'main' as const },
+      { id: '2028-02-10', date: '2028-02-10', week: 6, weekday: 'Donnerstag' as const, phase: 'main' as const },
+      { id: '2028-02-11', date: '2028-02-11', week: 6, weekday: 'Freitag' as const, phase: 'main' as const },
+      { id: '2028-02-12', date: '2028-02-12', week: 6, weekday: 'Samstag' as const, phase: 'main' as const },
+    ]
+    const rooms = [
+      { id: 'room-001', name: 'Seminarraum 2.14', capacity: 30 },
+      { id: 'room-002', name: 'Hörsaal A', capacity: 80 },
+      { id: 'room-003', name: 'Computerlab', capacity: 24 },
+      { id: 'room-004', name: 'Seminarraum 3.01', capacity: 40 },
+    ]
+    const modules = [
+      { id: 'mod-001', name: 'Digital Marketing', program: 'prog-dba', ects: 6 as const, expectedStudents: 25, instructors: ['instr-001'], restrictions: [{ id: 'AVOID_SATURDAY', category: 'soft' as const, weight: 20 }] },
+      { id: 'mod-002', name: 'Change Management', program: 'prog-dba', ects: 6 as const, expectedStudents: 20, instructors: ['instr-002'], restrictions: [{ id: 'AVOID_FRIDAY_AFTERNOON', category: 'soft' as const, weight: 20 }] },
+      { id: 'mod-003', name: 'Cloud Business Models', program: 'prog-dba', ects: 3 as const, expectedStudents: 18, instructors: ['instr-003'], restrictions: [{ id: 'UNAVAILABLE_DATES', category: 'hard' as const, params: { dates: ['2028-02-04'] } }] },
+      { id: 'mod-004', name: 'Live Case Felber', program: 'prog-dba', ects: 6 as const, expectedStudents: 28, instructors: ['instr-004'], restrictions: [{ id: 'AVOID_SATURDAY', category: 'soft' as const, weight: 10 }] },
+      { id: 'mod-005', name: 'Data-Driven', program: 'prog-dba', ects: 3 as const, expectedStudents: 22, instructors: ['instr-002'], restrictions: [] },
+      { id: 'mod-006', name: 'AI in Business', program: 'prog-dba', ects: 6 as const, expectedStudents: 30, instructors: ['instr-004'], restrictions: [{ id: 'ALLOWED_WEEKDAYS', category: 'hard' as const, params: { weekdays: ['Donnerstag', 'Freitag'] } }] },
+    ]
+    serverResult.value = await solveTimetableOnServer(modules, days, rooms, { timeLimitSeconds: 10 })
+  } catch (e: any) {
+    serverError.value = e.message
+  } finally {
+    solvingServer.value = false
   }
 }
 

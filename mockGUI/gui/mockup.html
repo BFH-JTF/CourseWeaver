@@ -906,8 +906,8 @@ function getSemesterWeeks(semester) {
   if (!semester) return [];
   const year = parseInt(semester.start_date.slice(0,4), 10);
   const isHS = semester.identifier.startsWith('HS');
-  const startKW = isHS ? 39 : 8;
-  const endKW = isHS ? 51 : 22;
+  const startKW = isHS ? 39 : 6;
+  const endKW = isHS ? 51 : 23; // FS aktiv KW 6-23 (On-Campus)
   const weeks = [];
   for (let kw = startKW; kw <= endKW; kw++) {
     const thu = getThursdayOfKW(year, kw);
