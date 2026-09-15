@@ -5,7 +5,7 @@ import type { Weekday } from './room'
 // always Thursday/Friday/Saturday").
 export type ContactWeekday = Extract<Weekday, 'thursday' | 'friday' | 'saturday'>
 
-export type Period = 'morning' | 'afternoon'
+export type Period = 'morning' | 'afternoon' | 'evening' // evening = 16–18 Uhr, nur Do/Fr, 0.25 Tage für 3-ECTS-Module
 
 export interface HalfDaySlot {
   date: string // ISO 8601, e.g. "2027-11-04"

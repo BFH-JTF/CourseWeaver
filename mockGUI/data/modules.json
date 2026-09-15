@@ -91,7 +91,7 @@
       "instr-059",
       "instr-047"
     ],
-    "is_live_case": true,
+    "is_live_case": false,
     "strategic_theme_ids": [
       "term-digitalisation"
     ],
@@ -878,7 +878,7 @@
   },
   {
     "_id": "mod-049",
-    "program_id": "prog-ent",
+    "program_id": "prog-dba",
     "title": "Live Case: Siegrist GmbH",
     "credits": 6,
     "description": "Modul 'Live Case: Siegrist GmbH' im Rahmen von Entrepreneurship, Semester 1.",
@@ -967,7 +967,7 @@
       "instr-043",
       "instr-049"
     ],
-    "is_live_case": true,
+    "is_live_case": false,
     "strategic_theme_ids": [
       "term-entrepreneurship"
     ],
@@ -1051,7 +1051,7 @@
   },
   {
     "_id": "mod-058",
-    "program_id": "prog-ent",
+    "program_id": "prog-dba",
     "title": "Live Case: Portmann AG",
     "credits": 6,
     "description": "Modul 'Live Case: Portmann AG' im Rahmen von Entrepreneurship, Semester 3.",

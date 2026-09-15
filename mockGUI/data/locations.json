@@ -1,14 +1,16 @@
 [
   {
     "_id": "loc-001",
-    "name": "BFH Bern, Brückenstrasse",
+    "name": "BFH Bern, Effingerstrasse",
     "campus": "Bern",
-    "building": "Brückenstrasse 73"
+    "building": "Effingerstrasse",
+    "address": "Effingerstrasse 10, 3008 Bern"
   },
   {
     "_id": "loc-002",
-    "name": "BFH Bern, Fellerstrasse",
+    "name": "BFH Bern, Effingerstrasse",
     "campus": "Bern",
-    "building": "Fellerstrasse 21"
+    "building": "Effingerstrasse",
+    "address": "Effingerstrasse 10, 3008 Bern"
   }
 ]
