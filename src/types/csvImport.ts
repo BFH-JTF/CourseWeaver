@@ -1,4 +1,4 @@
-export type ImportType = 'rooms' | 'locations' | 'competencies' | 'modules' | 'study_programs'
+export type ImportType = 'rooms' | 'locations' | 'competencies' | 'modules' | 'study_programs' | 'proofs_of_knowledge'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 

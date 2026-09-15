@@ -6,6 +6,7 @@ import { autoMapColumns, IMPORT_CONFIGS } from '../csvSchemas'
 import type { Competency } from '../../types/competency'
 import type { Location } from '../../types/location'
 import type { Room } from '../../types/room'
+import type { ProofOfKnowledge } from '../../types/proofOfKnowledge'
 
 console.log('--- Starting CSV Import Unit Tests ---')
 
@@ -193,5 +194,48 @@ assert.strictEqual(headerlessRooms[1]!.floor, 2)
 assert.strictEqual(headerlessRooms[1]!.room_type, 'computer_lab')
 assert.strictEqual(headerlessRooms[1]!.capacity.seats, 40)
 console.log('✓ Headerless CSV parsing and mapping passed')
+
+// 9. Test Proofs of Knowledge mapping & transformation
+const proofCsv = `name,description,assessment_type,multiple_choice,free_text,assignment_type,duration_minutes
+Midterm Exam,Covers modules 1 to 4,written,true,true,individual,90
+Project Presentation,Group project pitch and demo,oral,false,false,group,30`
+
+const proofParsed = parseCsv(proofCsv)
+const proofConfig = IMPORT_CONFIGS.proofs_of_knowledge
+const proofMapping = autoMapColumns(proofParsed.headers, proofConfig.fields)
+assert.strictEqual(proofMapping.name, 'name')
+assert.strictEqual(proofMapping.description, 'description')
+assert.strictEqual(proofMapping.assessmentType, 'assessment_type')
+assert.strictEqual(proofMapping.multipleChoice, 'multiple_choice')
+assert.strictEqual(proofMapping.freeText, 'free_text')
+assert.strictEqual(proofMapping.assignmentScope, 'assignment_type')
+assert.strictEqual(proofMapping.durationMinutes, 'duration_minutes')
+
+const proofMappedRows = proofParsed.rows.map(row => {
+  const obj: Record<string, any> = {}
+  for (const field of proofConfig.fields) {
+    const csvHeader = proofMapping[field.key]
+    if (csvHeader && row[csvHeader] !== undefined) {
+      obj[field.key] = row[csvHeader]
+    }
+  }
+  return obj
+})
+const proofs = proofConfig.transform(proofMappedRows) as ProofOfKnowledge[]
+assert.strictEqual(proofs.length, 2)
+assert.strictEqual(proofs[0]!.name, 'Midterm Exam')
+assert.strictEqual(proofs[0]!.assessmentType, 'written')
+assert.strictEqual(proofs[0]!.multipleChoice, true)
+assert.strictEqual(proofs[0]!.freeText, true)
+assert.strictEqual(proofs[0]!.assignmentScope, 'individual')
+assert.strictEqual(proofs[0]!.durationMinutes, 90)
+
+assert.strictEqual(proofs[1]!.name, 'Project Presentation')
+assert.strictEqual(proofs[1]!.assessmentType, 'oral')
+assert.strictEqual(proofs[1]!.multipleChoice, false)
+assert.strictEqual(proofs[1]!.freeText, false)
+assert.strictEqual(proofs[1]!.assignmentScope, 'group')
+assert.strictEqual(proofs[1]!.durationMinutes, 30)
+console.log('✓ Proof of Knowledge auto-mapping and transformation passed')
 
 console.log('--- All CSV Import Unit Tests Passed Successfully ---')

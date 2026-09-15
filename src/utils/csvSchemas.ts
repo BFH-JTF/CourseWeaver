@@ -3,6 +3,7 @@ import type { Room, RoomType, LayoutType } from '@/types/room'
 import type { Location } from '@/types/location'
 import type { Competency, SkillLevel } from '@/types/competency'
 import type { Module, StudyProgram } from '@/stores/curriculum'
+import type { ProofOfKnowledge, AssessmentForm, AssignmentScope } from '@/types/proofOfKnowledge'
 
 export function normalizeHeader(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -695,6 +696,106 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         if (obj.degreeType) sp.degreeType = String(obj.degreeType)
         if (obj.description) sp.description = String(obj.description)
         return sp
+      })
+    },
+  },
+
+  proofs_of_knowledge: {
+    type: 'proofs_of_knowledge',
+    label: 'Proofs of Knowledge',
+    icon: 'mdi-file-certificate-outline',
+    description: 'Assessment methods, exams, assignments, and duration.',
+    entityName: 'Proof of Knowledge',
+    fields: [
+      {
+        key: 'name',
+        label: 'Name',
+        required: true,
+        type: 'string',
+        description: 'Name or title of the proof of knowledge (e.g. Final Written Exam)',
+        aliases: ['name', 'title', 'bezeichnung', 'pruefung', 'exam', 'assessment', 'proof', 'proof_name'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Detailed description or criteria for the assessment',
+        aliases: ['description', 'beschreibung', 'details', 'criteria', 'desc'],
+      },
+      {
+        key: 'assessmentType',
+        label: 'Format (Written / Oral)',
+        required: false,
+        type: 'enum',
+        description: 'written or oral',
+        options: ['written', 'oral', 'Written', 'Oral', 'schriftlich', 'muendlich'],
+        defaultValue: 'written',
+        aliases: ['assessmenttype', 'assessment_type', 'format', 'type', 'art', 'written_oral', 'form'],
+      },
+      {
+        key: 'multipleChoice',
+        label: 'Multiple Choice Questions',
+        required: false,
+        type: 'boolean',
+        description: 'Whether multiple choice questions are included (true/false)',
+        aliases: ['multiplechoice', 'multiple_choice', 'mc', 'multiple choice', 'single_choice'],
+      },
+      {
+        key: 'freeText',
+        label: 'Free Text Questions',
+        required: false,
+        type: 'boolean',
+        description: 'Whether free text questions are included (true/false)',
+        aliases: ['freetext', 'free_text', 'free text', 'freitext', 'essay', 'open_questions'],
+      },
+      {
+        key: 'assignmentScope',
+        label: 'Assignment Type (Individual / Group)',
+        required: false,
+        type: 'enum',
+        description: 'individual or group',
+        options: ['individual', 'group', 'Individual', 'Group', 'einzelarbeit', 'gruppenarbeit'],
+        defaultValue: 'individual',
+        aliases: ['assignmentscope', 'assignment_scope', 'assignment_type', 'individual_group', 'group_assignment', 'scope'],
+      },
+      {
+        key: 'durationMinutes',
+        label: 'Duration of Test (min)',
+        required: false,
+        type: 'number',
+        description: 'Test duration in minutes',
+        aliases: ['durationminutes', 'duration_minutes', 'duration', 'dauer', 'pruefungsdauer', 'minutes', 'minuten', 'zeit'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): ProofOfKnowledge[] => {
+      return mappedRows.map(obj => {
+        let assessmentType: AssessmentForm = 'written'
+        const at = String(obj.assessmentType || '').toLowerCase().trim()
+        if (at.includes('oral') || at.includes('muend')) {
+          assessmentType = 'oral'
+        }
+
+        let assignmentScope: AssignmentScope = 'individual'
+        const as = String(obj.assignmentScope || '').toLowerCase().trim()
+        if (as.includes('group') || as.includes('grupp')) {
+          assignmentScope = 'group'
+        }
+
+        const proof: ProofOfKnowledge = {
+          name: String(obj.name || 'Unnamed Proof of Knowledge'),
+          assessmentType,
+          multipleChoice: parseBoolean(obj.multipleChoice),
+          freeText: parseBoolean(obj.freeText),
+          assignmentScope,
+        }
+
+        if (obj.description) proof.description = String(obj.description)
+        if (obj.durationMinutes !== undefined && obj.durationMinutes !== '') {
+          proof.durationMinutes = Number(obj.durationMinutes) || undefined
+        }
+
+        return proof
       })
     },
   },

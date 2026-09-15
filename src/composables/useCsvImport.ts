@@ -13,6 +13,7 @@ export function useCsvImport() {
     competencies: EntityTables.COMPETENCY,
     modules: EntityTables.MODULE,
     study_programs: EntityTables.STUDY_PROGRAM,
+    proofs_of_knowledge: EntityTables.PROOF_OF_KNOWLEDGE,
   }
 
   async function saveImportedData(type: ImportType, items: any[]): Promise<number> {
