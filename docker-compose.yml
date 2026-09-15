@@ -1,0 +1,20 @@
+services:
+  doc-pouch:
+    image: ghcr.io/bfh-jtf/doc-pouch:latest
+    ports:
+      - "3030:3030"
+    volumes:
+      - "./docpouch-db:/app/db"
+      - "./docpouch-log:/app/log"
+    environment:
+      - PORT=3030
+      - MEMORY_ONLY=false
+      - JWT_SECRET=change-me-in-production
+      - SESSION_TIMEOUT=24h
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+      - OIDC_ISSUER=http://localhost:3030/oidc
+      - OIDC_REGISTRATION_TOKEN=TestToken
+      - OIDC_COOKIE_KEY=docpouch-cookie-secret-change-in-production
+      - LOG_LEVEL=debug
+      - NODE_ENV=development
+    restart: unless-stopped
