@@ -235,7 +235,7 @@ function formatRoomType(t: string): string {
 
 function getLocationLabel(locationId?: string): string {
   if (!locationId) return '-'
-  const loc = locations.value.find(l => l._id === locationId)
+  const loc = locations.value.find(l => l.id === locationId)
   return loc ? (loc.name || loc.building) : '-'
 }
 
@@ -274,7 +274,7 @@ function openEditRoom(room: Room) {
 
 async function handleRoomSave(room: Room) {
   try {
-    if (room._id) {
+    if (room.id) {
       await updateRoom(room)
       showSnackbar('Room updated')
     } else {
@@ -289,8 +289,8 @@ async function handleRoomSave(room: Room) {
 async function handleCreateLocationFromRoom(location: Location) {
   try {
     await addLocation(location)
-    if (location._id) {
-      editRoom.value = { ...editRoom.value!, location_id: location._id }
+    if (location.id) {
+      editRoom.value = { ...editRoom.value!, location_id: location.id }
     }
     showSnackbar('Location created')
   } catch {
@@ -300,7 +300,7 @@ async function handleCreateLocationFromRoom(location: Location) {
 
 function confirmDeleteRoom(room: Room) {
   deleteKind = 'room'
-  deleteId = room._id ?? ''
+  deleteId = room.id ?? ''
   deleteTargetName.value = room.name
   deleteDialogOpen.value = true
 }
@@ -317,7 +317,7 @@ function openEditLocation(loc: Location) {
 
 async function handleLocationSave(loc: Location) {
   try {
-    if (loc._id) {
+    if (loc.id) {
       await updateLocation(loc)
       showSnackbar('Location updated')
     } else {
@@ -331,7 +331,7 @@ async function handleLocationSave(loc: Location) {
 
 function confirmDeleteLocation(loc: Location) {
   deleteKind = 'location'
-  deleteId = loc._id ?? ''
+  deleteId = loc.id ?? ''
   deleteTargetName.value = loc.name || loc.building
   deleteDialogOpen.value = true
 }

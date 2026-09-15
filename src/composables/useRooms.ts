@@ -133,8 +133,7 @@ export function useRooms() {
     error.value = null
     try {
       const saved = await createEntity<Room>(EntityTables.ROOM, room)
-      room._id = saved._id || saved.id
-      room.id = saved.id || saved._id
+      room.id = saved.id
       rooms.value = await fetchEntities<Room>(EntityTables.ROOM)
     } catch (e: any) {
       error.value = e.message
@@ -143,12 +142,12 @@ export function useRooms() {
   }
 
   async function updateRoom(room: Room) {
-    const id = room._id || room.id
+    const id = room.id
     if (!id) return
     error.value = null
     try {
       await updateDbEntity(EntityTables.ROOM, id, room)
-      const idx = rooms.value.findIndex(r => (r._id === id || r.id === id))
+      const idx = rooms.value.findIndex(r => r.id === id)
       if (idx !== -1) rooms.value[idx] = room
     } catch (e: any) {
       error.value = e.message
@@ -160,7 +159,7 @@ export function useRooms() {
     error.value = null
     try {
       await removeDbEntity(EntityTables.ROOM, id)
-      rooms.value = rooms.value.filter(r => r._id !== id && r.id !== id)
+      rooms.value = rooms.value.filter(r => r.id !== id)
     } catch (e: any) {
       error.value = e.message
       throw e

@@ -98,13 +98,14 @@ CourseWeaver provides an integrated solution tailored to university workflows:
 
 ## Technology Stack
 
+- **Backend Framework**: [Express.js](https://expressjs.com/) (Node.js REST API with CORS and JSON middleware)
 - **Frontend Framework**: [Vue 3](https://vuejs.org/) (Composition API, `<script setup lang="ts">`)
 - **Language**: [TypeScript](https://www.typescriptlang.org/) (~5.7)
 - **UI & Components**: [Vuetify 3/4](https://vuetifyjs.com/) & [Material Design Icons (`@mdi/font`)](https://pictogrammers.com/docs/library/mdi/)
 - **State Management**: [Pinia](https://pinia.vuejs.org/)
 - **Routing**: [Vue Router 4](https://router.vuejs.org/)
 - **Build Tool**: [Vite 8](https://vite.dev/)
-- **Database & Persistence**: [PostgreSQL 16](https://www.postgresql.org/) with JSONB document storage
+- **Database & Persistence**: [PostgreSQL 16](https://www.postgresql.org/) with JSONB document storage (with in-memory fallback)
 - **Authentication**: OpenID Connect (OIDC) / EduID (with docPouch as a supported identity provider)
 - **Containerization**: [Docker](https://www.docker.com/) & Docker Compose
 
@@ -119,21 +120,31 @@ CourseWeaver/
 │   ├── datastructure.curriculum.md  # Core academic entity definitions (Program, Degree, Module)
 │   ├── datastructure.locations.md   # Location JSON & CSV specifications
 │   ├── datastructure.rooms.md       # Classroom & equipment specifications
-│   └── starting_desc.md             # Project requirements and Ilios domain comparison
+│   ├── datastructure.student_skills.md # Skill categories, topics, and proficiency levels
+│   └── starting_desc.md             # Project requirements and domain comparison
 ├── index.html                  # HTML entry point
 ├── package.json                # Project dependencies and scripts
-├── src/
+├── server/                     # Backend Express REST API
+│   ├── db.ts                   # PostgreSQL connection pool and JSONB persistence layer
+│   ├── index.ts                # Express server setup and static serving
+│   ├── routes/
+│   │   └── api.ts              # Generic and entity REST endpoints (/api/:entity)
+│   └── test/
+│       └── api.test.ts         # REST API test suite
+├── src/                        # Frontend Vue 3 application
 │   ├── App.vue                 # Root component with OIDC lifecycle handler
 │   ├── main.ts                 # Application bootstrapping
 │   ├── components/             # Reusable UI dialogs and components
+│   │   ├── CompetencyFormDialog.vue # Competency taxonomy add/edit dialog
 │   │   ├── LocationFormDialog.vue   # Location add/edit dialog
 │   │   └── RoomFormDialog.vue       # Room details add/edit dialog
 │   ├── composables/            # Shared business logic and API integrations
+│   │   ├── useCompetencies.ts       # Competency taxonomy management
 │   │   ├── useDocPouch.ts           # docPouch OIDC compatibility adapter
-│   │   ├── useLocations.ts          # Location management via PostgreSQL JSONB
+│   │   ├── useLocations.ts          # Location management via REST API
 │   │   ├── useOidc.ts               # OpenID Connect authentication & provider management
-│   │   ├── usePostgres.ts           # PostgreSQL JSONB data client & settings
-│   │   └── useRooms.ts              # Room management via PostgreSQL JSONB
+│   │   ├── usePostgres.ts           # PostgreSQL JSONB REST API client & settings
+│   │   └── useRooms.ts              # Room management via REST API
 │   ├── layouts/
 │   │   └── AppLayout.vue            # Navigation drawer, app bar, and main layout
 │   ├── plugins/
@@ -144,8 +155,9 @@ CourseWeaver/
 │   │   ├── auth.ts                  # User authentication and admin role state
 │   │   └── curriculum.ts            # Curriculum, module, lesson, and taxonomy store
 │   ├── types/                  # TypeScript interface declarations
+│   │   ├── competency.ts            # Competency and skill taxonomy types
 │   │   ├── location.ts              # Location entity definitions
-│   │   └── room.ts                  # Comprehensive room, equipment & availability types
+│   │   └── room.ts                  # Room, equipment & availability types
 │   └── views/                  # Application views/screens
 │       ├── AdminView.vue            # System administration and user management
 │       ├── CallbackView.vue         # OIDC authentication callback handler
@@ -159,8 +171,9 @@ CourseWeaver/
 │       ├── ScheduleView.vue         # Semester schedule and lecturer assignments
 │       ├── SettingsView.vue         # PostgreSQL connection and OIDC provider settings
 │       └── TaxonomyView.vue         # Competencies, learning objectives & proofs of knowledge
-├── tsconfig.json               # TypeScript compiler options
-└── vite.config.ts              # Vite configuration with Vuetify plugin
+├── tsconfig.json               # Frontend TypeScript compiler options
+├── tsconfig.server.json        # Backend TypeScript compiler options
+└── vite.config.ts              # Vite configuration with Vuetify and /api proxy
 ```
 
 ---
@@ -231,10 +244,14 @@ http://localhost:5173
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Starts Vite local development server with HMR. |
-| `npm run build` | Runs TypeScript typecheck (`vue-tsc`) and builds for production into `dist/`. |
-| `npm run preview` | Locally previews the production build. |
-| `npm run typecheck` | Validates TypeScript types across the codebase without emitting files. |
+| `npm run dev` | Starts both the backend Express REST API server and Vite frontend concurrently. |
+| `npm run dev:server` | Starts the Express REST API backend server with live reload (`tsx watch`). |
+| `npm run dev:client` | Starts Vite frontend development server with HMR. |
+| `npm run build` | Runs TypeScript typecheck (`vue-tsc`) and builds the frontend for production into `dist/`. |
+| `npm run start` | Runs the Express REST API backend server (and serves static `dist/` if present). |
+| `npm run test` | Runs the REST API integration test suite. |
+| `npm run preview` | Locally previews the production frontend build. |
+| `npm run typecheck` | Validates TypeScript types across frontend and server codebases. |
 
 ---
 

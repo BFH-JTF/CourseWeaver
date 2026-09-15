@@ -143,7 +143,7 @@ const streamingCameraTypeOptions: StreamingCameraType[] = ['fixed', 'tracking', 
 const streamingCameraQualityOptions: StreamingCameraQuality[] = ['720p', '1080p', '4k']
 const connectionTypeOptions: ConnectionType[] = ['HDMI', 'DisplayPort', 'USB-C', 'VGA', '3.5mm_audio', 'Ethernet']
 
-const isEdit = computed(() => !!props.roomData?._id)
+const isEdit = computed(() => !!props.roomData?.id)
 
 const tab = ref('general')
 const formRef = ref()
@@ -174,7 +174,7 @@ function emptyRoom(): Room {
 const locationItems = computed(() =>
   props.locations.map(l => ({
     title: l.name || l.building,
-    value: l._id,
+    value: l.id,
   }))
 )
 

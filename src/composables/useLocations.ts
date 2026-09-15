@@ -51,8 +51,7 @@ export function useLocations() {
     error.value = null
     try {
       const saved = await createEntity<Location>(EntityTables.LOCATION, location)
-      location._id = saved._id || saved.id
-      location.id = saved.id || saved._id
+      location.id = saved.id
       locations.value = await fetchEntities<Location>(EntityTables.LOCATION)
     } catch (e: any) {
       error.value = e.message
@@ -61,12 +60,12 @@ export function useLocations() {
   }
 
   async function updateLocation(location: Location) {
-    const id = location._id || location.id
+    const id = location.id
     if (!id) return
     error.value = null
     try {
       await updateDbEntity(EntityTables.LOCATION, id, location)
-      const idx = locations.value.findIndex(l => (l._id === id || l.id === id))
+      const idx = locations.value.findIndex(l => l.id === id)
       if (idx !== -1) locations.value[idx] = location
     } catch (e: any) {
       error.value = e.message
@@ -78,7 +77,7 @@ export function useLocations() {
     error.value = null
     try {
       await removeDbEntity(EntityTables.LOCATION, id)
-      locations.value = locations.value.filter(l => l._id !== id && l.id !== id)
+      locations.value = locations.value.filter(l => l.id !== id)
     } catch (e: any) {
       error.value = e.message
       throw e

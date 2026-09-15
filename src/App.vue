@@ -13,7 +13,8 @@ const oidc = useOidc()
 const auth = useAuthStore()
 
 onMounted(async () => {
-  if (oidc.hasOidcCallbackParams()) {
+  const currentRoute = router.currentRoute.value
+  if (currentRoute.name !== 'callback' && oidc.hasOidcCallbackParams()) {
     try {
       const handled = await oidc.handleOidcCallback()
       if (handled) {
@@ -29,8 +30,7 @@ onMounted(async () => {
 
   const authenticated = await auth.initAuth()
   if (authenticated) {
-    const currentRoute = router.currentRoute.value
-    if (currentRoute.name === 'login' || currentRoute.name === 'callback') {
+    if (router.currentRoute.value.name === 'login') {
       router.replace({ name: 'dashboard' })
     }
   }

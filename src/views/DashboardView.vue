@@ -27,7 +27,7 @@
 <script setup lang="ts">
 const dashboardCards = [
   { title: 'Curriculum', subtitle: 'Programs, modules, and lessons', icon: 'mdi-book-education', to: '/curriculum' },
-  { title: 'Taxonomy', subtitle: 'Competencies, objectives, proofs', icon: 'mdi-sitemap', to: '/taxonomy' },
+  { title: 'Taxonomy', subtitle: 'Competencies, levels, and proofs', icon: 'mdi-sitemap', to: '/taxonomy' },
   { title: 'Modules', subtitle: 'Module details and relationships', icon: 'mdi-view-module', to: '/modules' },
   { title: 'Schedule', subtitle: 'Semester scheduling', icon: 'mdi-calendar-clock', to: '/schedule' },
   { title: 'Rooms & Locations', subtitle: 'Room and location management', icon: 'mdi-door-open', to: '/rooms' },

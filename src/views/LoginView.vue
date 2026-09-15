@@ -45,15 +45,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useOidc } from '@/composables/useOidc'
+import { useAuthStore } from '@/stores/auth'
 
+const router = useRouter()
 const oidc = useOidc()
+const auth = useAuthStore()
 
 const isConfigured = computed(() => oidc.isConfigured.value)
 const authError = computed(() => oidc.authError.value)
 const providerName = computed(() => (oidc.providerType.value === 'docpouch' ? 'docPouch' : 'EduID / OIDC'))
 const isLoggingIn = ref(false)
+
+onMounted(async () => {
+  const authenticated = await auth.initAuth()
+  if (authenticated) {
+    router.replace({ name: 'dashboard' })
+  }
+})
 
 async function handleLogin() {
   oidc.clearAuthError()

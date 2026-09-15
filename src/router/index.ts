@@ -81,9 +81,24 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+let authInitialized = false
+let initAuthPromise: Promise<boolean> | null = null
+
+router.beforeEach(async (to) => {
   const oidc = useOidc()
   const auth = useAuthStore()
+
+  if (to.name === 'callback') {
+    return true
+  }
+
+  if (!authInitialized) {
+    if (!initAuthPromise) {
+      initAuthPromise = auth.initAuth()
+    }
+    await initAuthPromise
+    authInitialized = true
+  }
 
   if (to.meta.requiresConfig !== false && !oidc.isConfigured.value) {
     return { name: 'settings' }
@@ -91,6 +106,10 @@ router.beforeEach((to) => {
 
   if (to.meta.requiresAuth !== false && !auth.isAuthenticated) {
     return { name: 'login' }
+  }
+
+  if (to.name === 'login' && auth.isAuthenticated) {
+    return { name: 'dashboard' }
   }
 
   if (to.meta.requiresAdmin && !auth.isAdmin) {

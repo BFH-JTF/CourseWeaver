@@ -35,7 +35,7 @@ const emit = defineEmits<{
   'save': [location: Location]
 }>()
 
-const isEdit = computed(() => !!props.locationData?._id)
+const isEdit = computed(() => !!props.locationData?.id)
 
 const formRef = ref()
 const location = ref<Location>(emptyLocation())

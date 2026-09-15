@@ -26,6 +26,9 @@ export const useAuthStore = defineStore('auth', () => {
     if (authenticated && oidc.currentUser.value) {
       userName.value = oidc.currentUser.value.name || ''
       isAdmin.value = !!oidc.currentUser.value.isAdmin
+    } else {
+      userName.value = ''
+      isAdmin.value = false
     }
     return authenticated
   }
