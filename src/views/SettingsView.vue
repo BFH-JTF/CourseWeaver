@@ -47,7 +47,7 @@
               <v-text-field
                 v-if="providerType === 'docpouch'"
                 v-model="oidcRegistrationToken"
-                label="OIDC Registration Token"
+                label="OIDC Registration Token (docPouch)"
                 type="password"
                 placeholder="TestToken"
                 hint="One-time registration token for docPouch OIDC provider"

@@ -18,6 +18,7 @@ export interface OidcUser {
   isAdmin?: boolean
   roles?: string[]
   preferred_username?: string
+  username?: string
 }
 
 export type OidcProviderType = 'docpouch' | 'eduid' | 'generic'
@@ -106,6 +107,52 @@ function initDocPouchClient(baseIssuer: string) {
   docPouchInstance.value = new docPouchClient(baseUrl, 0, () => {})
 }
 
+function extractOidcUser(claims: any, authState?: any, idClaims?: any, fallbackName = 'User'): OidcUser {
+  const merged = { ...(claims || {}), ...(idClaims || {}) }
+  const name =
+    authState?.userName ||
+    merged.name ||
+    merged.preferred_username ||
+    merged.username ||
+    merged.userName ||
+    merged.sub ||
+    merged.email ||
+    fallbackName
+
+  const preferredUsername =
+    merged.preferred_username ||
+    merged.username ||
+    merged.userName ||
+    authState?.userName ||
+    (typeof merged.name === 'string' && merged.name ? merged.name : undefined)
+
+  const id =
+    (authState as any)?.userId ||
+    merged.userId ||
+    merged.sub ||
+    merged.id ||
+    authState?.userName ||
+    'user'
+
+  const isAdmin =
+    !!authState?.isAdmin ||
+    !!merged.admin ||
+    merged.role === 'admin' ||
+    (Array.isArray(merged.roles) && merged.roles.includes('admin'))
+
+  const roles = merged.roles || (merged.role ? [merged.role] : (isAdmin ? ['admin'] : []))
+
+  return {
+    id: String(id),
+    name: String(name),
+    email: merged.email,
+    isAdmin,
+    roles,
+    preferred_username: preferredUsername ? String(preferredUsername) : undefined,
+    username: preferredUsername ? String(preferredUsername) : undefined,
+  }
+}
+
 export function useOidc() {
   async function initAuth(): Promise<boolean> {
     if (providerType.value === 'docpouch' && issuer.value) {
@@ -116,6 +163,13 @@ export function useOidc() {
             isAuthenticated.value = false
             authMethod.value = 'none'
             currentUser.value = null
+            localStorage.removeItem(OIDC_STORAGE_KEYS.accessToken)
+            localStorage.removeItem(OIDC_STORAGE_KEYS.idToken)
+            localStorage.removeItem(OIDC_STORAGE_KEYS.user)
+            localStorage.removeItem('cw_oidc_state')
+            localStorage.removeItem('authToken')
+            localStorage.removeItem('authMethod')
+            localStorage.removeItem('docpouch_oidc_session')
             return false
           }
           if (docPouchInstance.value.isAuthenticated()) {
@@ -123,14 +177,10 @@ export function useOidc() {
             authMethod.value = docPouchInstance.value.getAuthMethod() as 'jwt' | 'oidc'
             const token = docPouchInstance.value.getToken()
             if (token && !currentUser.value) {
+              const idToken = (docPouchInstance.value as any)?.oidcIdToken || localStorage.getItem(OIDC_STORAGE_KEYS.idToken)
               const claims = parseJwt(token)
-              const user: OidcUser = {
-                id: (claims as any)?.userId || claims?.sub || claims?.id || 'user',
-                name: claims?.name || claims?.preferred_username || claims?.email || 'DocPouch User',
-                email: claims?.email,
-                isAdmin: !!claims?.admin || claims?.role === 'admin' || (claims?.roles && claims.roles.includes('admin')),
-                roles: claims?.roles || (claims?.role ? [claims.role] : []),
-              }
+              const idClaims = idToken ? parseJwt(idToken) : null
+              const user = extractOidcUser(claims, undefined, idClaims)
               currentUser.value = user
               localStorage.setItem(OIDC_STORAGE_KEYS.user, JSON.stringify(user))
             }
@@ -141,14 +191,10 @@ export function useOidc() {
             isAuthenticated.value = true
             authMethod.value = authState.method as 'jwt' | 'oidc'
             if (!currentUser.value) {
+              const idToken = (docPouchInstance.value as any)?.oidcIdToken || localStorage.getItem(OIDC_STORAGE_KEYS.idToken)
               const claims = parseJwt(authState.token)
-              const user: OidcUser = {
-                id: (authState as any).userId || authState.userName || claims?.sub || 'user',
-                name: authState.userName || claims?.name || claims?.preferred_username || 'DocPouch User',
-                email: claims?.email,
-                isAdmin: !!authState.isAdmin || claims?.admin === true || (claims?.roles && claims.roles.includes('admin')),
-                roles: claims?.roles || (claims?.role ? [claims.role] : []),
-              }
+              const idClaims = idToken ? parseJwt(idToken) : null
+              const user = extractOidcUser(claims, authState, idClaims)
               currentUser.value = user
               localStorage.setItem(OIDC_STORAGE_KEYS.user, JSON.stringify(user))
             }
@@ -179,14 +225,10 @@ export function useOidc() {
     const token = localStorage.getItem(OIDC_STORAGE_KEYS.accessToken) || localStorage.getItem('authToken')
     if (token) {
       const claims = parseJwt(token)
-      if (claims) {
-        const user: OidcUser = {
-          id: claims.sub || claims.id,
-          name: claims.name || claims.preferred_username || claims.email || 'OIDC User',
-          email: claims.email,
-          isAdmin: claims.admin === true || claims.role === 'admin' || (claims.roles && claims.roles.includes('admin')),
-          roles: claims.roles || (claims.role ? [claims.role] : []),
-        }
+      const idToken = localStorage.getItem(OIDC_STORAGE_KEYS.idToken)
+      const idClaims = idToken ? parseJwt(idToken) : null
+      if (claims || idClaims) {
+        const user = extractOidcUser(claims, undefined, idClaims)
         currentUser.value = user
         localStorage.setItem(OIDC_STORAGE_KEYS.user, JSON.stringify(user))
         isAuthenticated.value = true
@@ -383,13 +425,8 @@ export function useOidc() {
             }
             if (token) {
               const claims = parseJwt(token)
-              const user: OidcUser = {
-                id: (claims as any)?.userId || claims?.sub || claims?.id || 'user',
-                name: claims?.name || claims?.preferred_username || claims?.email || 'DocPouch User',
-                email: claims?.email,
-                isAdmin: !!claims?.admin || claims?.role === 'admin' || (claims?.roles && claims.roles.includes('admin')),
-                roles: claims?.roles || (claims?.role ? [claims.role] : []),
-              }
+              const idClaims = idToken ? parseJwt(idToken) : null
+              const user = extractOidcUser(claims, undefined, idClaims, 'User')
               currentUser.value = user
               localStorage.setItem(OIDC_STORAGE_KEYS.user, JSON.stringify(user))
               localStorage.setItem(OIDC_STORAGE_KEYS.accessToken, token)
@@ -416,22 +453,23 @@ export function useOidc() {
     if (code || token) {
       if (token) {
         localStorage.setItem(OIDC_STORAGE_KEYS.accessToken, token)
+        const idToken = params.get('id_token') || localStorage.getItem(OIDC_STORAGE_KEYS.idToken)
         const claims = parseJwt(token)
-        if (claims) {
-          const user: OidcUser = {
-            id: claims.sub || claims.id,
-            name: claims.name || claims.preferred_username || claims.email || params.get('name') || 'Authenticated User',
-            email: claims.email || params.get('email') || undefined,
-            isAdmin: claims.admin === true || claims.role === 'admin' || (claims.roles && claims.roles.includes('admin')),
-            roles: claims.roles || (claims.role ? [claims.role] : []),
-          }
+        const idClaims = idToken ? parseJwt(idToken) : null
+        if (claims || idClaims) {
+          const fallback = params.get('name') || params.get('preferred_username') || params.get('username') || 'Authenticated User'
+          const user = extractOidcUser(claims, undefined, idClaims, fallback)
+          if (params.get('email') && !user.email) user.email = params.get('email')!
           currentUser.value = user
           localStorage.setItem(OIDC_STORAGE_KEYS.user, JSON.stringify(user))
         }
       } else {
+        const nameParam = params.get('name') || params.get('preferred_username') || params.get('username') || 'Authenticated User'
         const user: OidcUser = {
           id: 'oidc_user_' + Date.now(),
-          name: params.get('name') || 'Authenticated User',
+          name: nameParam,
+          preferred_username: nameParam,
+          username: nameParam,
           email: params.get('email') || undefined,
           isAdmin: true,
         }
@@ -462,11 +500,10 @@ export function useOidc() {
     if (issuer.value && typeof window !== 'undefined' && window.location) {
       let endSessionUrl = ''
       if (providerType.value === 'docpouch') {
-        const origin = window.location.origin
-        const isLocalHost = issuer.value.includes('localhost:3030') || issuer.value.includes('127.0.0.1:3030') || issuer.value.includes(window.location.host)
-        const baseUrl = isLocalHost
-          ? origin
-          : (issuer.value.trim().replace(/\/oidc\/?$/, '').replace(/\/+$/, '').match(/^https?:\/\//i) ? issuer.value.trim().replace(/\/oidc\/?$/, '').replace(/\/+$/, '') : `http://${issuer.value.trim().replace(/\/oidc\/?$/, '').replace(/\/+$/, '')}`)
+        let baseUrl = issuer.value.trim().replace(/\/oidc\/?$/, '').replace(/\/+$/, '')
+        if (!baseUrl.match(/^https?:\/\//i)) {
+          baseUrl = 'http://' + baseUrl
+        }
         endSessionUrl = `${baseUrl}/oidc/end_session?post_logout_redirect_uri=${encodeURIComponent(redirectUri)}`
       } else {
         const baseIssuer = issuer.value.trim().replace(/\/+$/, '')

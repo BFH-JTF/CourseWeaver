@@ -5,8 +5,46 @@ export interface EntityRecord {
   [key: string]: any
 }
 
+export interface LocalUser {
+  id: string
+  oidc_issuer: string
+  oidc_subject: string
+  name: string
+  email: string
+  roles: string[]
+  is_admin: boolean
+  created_at: string
+  updated_at: string
+}
+
+class AsyncMutex {
+  private mutex = Promise.resolve()
+
+  lock(): Promise<() => void> {
+    let begin: (unlock: () => void) => void = () => {}
+    this.mutex = this.mutex.then(() => {
+      return new Promise(begin)
+    })
+    return new Promise(res => {
+      begin = res
+    })
+  }
+
+  async runExclusive<T>(callback: () => Promise<T>): Promise<T> {
+    const unlock = await this.lock()
+    try {
+      return await callback()
+    } finally {
+      unlock()
+    }
+  }
+}
+
+const bootstrapMutex = new AsyncMutex()
+
 // In-memory fallback storage in case PostgreSQL server is not currently reachable
 const memoryStore: Map<string, Map<string, any>> = new Map()
+const memoryUsers: Map<string, LocalUser> = new Map()
 
 function getMemoryTable(table: string): Map<string, any> {
   if (!memoryStore.has(table)) {
@@ -53,6 +91,20 @@ export async function initDatabase(): Promise<boolean> {
           PRIMARY KEY (table_name, id)
         );
         CREATE INDEX IF NOT EXISTS idx_entity_store_table ON entity_store(table_name);
+
+        CREATE TABLE IF NOT EXISTS local_users (
+          id VARCHAR(255) PRIMARY KEY,
+          oidc_issuer VARCHAR(512) NOT NULL,
+          oidc_subject VARCHAR(512) NOT NULL,
+          name VARCHAR(255) DEFAULT '',
+          email VARCHAR(255) DEFAULT '',
+          roles JSONB NOT NULL DEFAULT '[]'::jsonb,
+          is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          CONSTRAINT uq_local_users_oidc UNIQUE (oidc_issuer, oidc_subject)
+        );
+        CREATE INDEX IF NOT EXISTS idx_local_users_admin ON local_users(is_admin);
       `)
       isConnected = true
       console.log(`[Database] Successfully connected to PostgreSQL at ${config.host}:${config.port}/${config.database}`)
@@ -69,6 +121,291 @@ export async function initDatabase(): Promise<boolean> {
 
 export function isDbConnected(): boolean {
   return isConnected
+}
+
+function mapRowToUser(row: any): LocalUser {
+  return {
+    id: row.id,
+    oidc_issuer: row.oidc_issuer,
+    oidc_subject: row.oidc_subject,
+    name: row.name || '',
+    email: row.email || '',
+    roles: Array.isArray(row.roles) ? row.roles : typeof row.roles === 'string' ? JSON.parse(row.roles) : [],
+    is_admin: !!row.is_admin,
+    created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ''),
+    updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at || ''),
+  }
+}
+
+export async function getAdminCount(): Promise<number> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query('SELECT COUNT(*) FROM local_users WHERE is_admin = true')
+      return parseInt(res.rows[0].count, 10)
+    } catch (err) {
+      console.error('[Database] Error counting admins:', err)
+    }
+  }
+
+  return Array.from(memoryUsers.values()).filter(u => u.is_admin).length
+}
+
+export async function getUserByOidc(issuer: string, subject: string): Promise<LocalUser | null> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        'SELECT * FROM local_users WHERE oidc_issuer = $1 AND oidc_subject = $2',
+        [issuer, subject]
+      )
+      if (res.rows.length > 0) {
+        return mapRowToUser(res.rows[0])
+      }
+      return null
+    } catch (err) {
+      console.error('[Database] Error finding user by OIDC (iss, sub):', err)
+    }
+  }
+
+  const found = Array.from(memoryUsers.values()).find(
+    u => u.oidc_issuer === issuer && u.oidc_subject === subject
+  )
+  return found ? { ...found } : null
+}
+
+export async function getUserById(id: string): Promise<LocalUser | null> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query('SELECT * FROM local_users WHERE id = $1', [id])
+      if (res.rows.length > 0) {
+        return mapRowToUser(res.rows[0])
+      }
+      return null
+    } catch (err) {
+      console.error('[Database] Error finding user by ID:', err)
+    }
+  }
+
+  const found = memoryUsers.get(id)
+  return found ? { ...found } : null
+}
+
+export async function getAllUsers(): Promise<LocalUser[]> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query('SELECT * FROM local_users ORDER BY created_at ASC')
+      return res.rows.map(mapRowToUser)
+    } catch (err) {
+      console.error('[Database] Error fetching all users:', err)
+    }
+  }
+
+  return Array.from(memoryUsers.values()).map(u => ({ ...u }))
+}
+
+export async function createOrUpdateUser(data: {
+  oidc_issuer: string
+  oidc_subject: string
+  name?: string
+  email?: string
+  roles?: string[]
+  is_admin?: boolean
+}): Promise<LocalUser> {
+  const now = new Date().toISOString()
+  const roles = data.roles || ['user']
+  const isAdmin = data.is_admin ?? false
+  const name = data.name || ''
+  const email = data.email || ''
+
+  if (isConnected && pool) {
+    const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    const res = await pool.query(
+      `INSERT INTO local_users (id, oidc_issuer, oidc_subject, name, email, roles, is_admin, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+       ON CONFLICT (oidc_issuer, oidc_subject)
+       DO UPDATE SET
+         name = CASE WHEN local_users.name IS NOT NULL AND local_users.name <> '' THEN local_users.name ELSE $4 END,
+         email = CASE WHEN local_users.email IS NOT NULL AND local_users.email <> '' THEN local_users.email ELSE $5 END,
+         updated_at = $8
+       RETURNING *`,
+      [id, data.oidc_issuer, data.oidc_subject, name, email, JSON.stringify(roles), isAdmin, now]
+    )
+    return mapRowToUser(res.rows[0])
+  }
+
+  // Memory fallback
+  return await bootstrapMutex.runExclusive(async () => {
+    const existing = Array.from(memoryUsers.values()).find(
+      u => u.oidc_issuer === data.oidc_issuer && u.oidc_subject === data.oidc_subject
+    )
+    if (existing) {
+      if (!existing.name && name) existing.name = name
+      if (!existing.email && email) existing.email = email
+      existing.updated_at = now
+      memoryUsers.set(existing.id, existing)
+      return { ...existing }
+    } else {
+      const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const newUser: LocalUser = {
+        id,
+        oidc_issuer: data.oidc_issuer,
+        oidc_subject: data.oidc_subject,
+        name,
+        email,
+        roles,
+        is_admin: isAdmin,
+        created_at: now,
+        updated_at: now,
+      }
+      memoryUsers.set(id, newUser)
+      return { ...newUser }
+    }
+  })
+}
+
+export async function updateUser(id: string, updates: Partial<LocalUser>): Promise<LocalUser | null> {
+  const now = new Date().toISOString()
+  if (isConnected && pool) {
+    try {
+      const current = await getUserById(id)
+      if (!current) return null
+
+      const name = updates.name !== undefined ? updates.name : current.name
+      const email = updates.email !== undefined ? updates.email : current.email
+      const roles = updates.roles !== undefined ? updates.roles : current.roles
+      const isAdmin = updates.is_admin !== undefined ? updates.is_admin : current.is_admin
+
+      const res = await pool.query(
+        `UPDATE local_users
+         SET name = $1, email = $2, roles = $3, is_admin = $4, updated_at = $5
+         WHERE id = $6
+         RETURNING *`,
+        [name, email, JSON.stringify(roles), isAdmin, now, id]
+      )
+      if (res.rows.length > 0) {
+        return mapRowToUser(res.rows[0])
+      }
+      return null
+    } catch (err) {
+      console.error('[Database] Error updating user:', err)
+      return null
+    }
+  }
+
+  return await bootstrapMutex.runExclusive(async () => {
+    const existing = memoryUsers.get(id)
+    if (!existing) return null
+
+    if (updates.name !== undefined) existing.name = updates.name
+    if (updates.email !== undefined) existing.email = updates.email
+    if (updates.roles !== undefined) existing.roles = updates.roles
+    if (updates.is_admin !== undefined) existing.is_admin = updates.is_admin
+    existing.updated_at = now
+    memoryUsers.set(id, existing)
+    return { ...existing }
+  })
+}
+
+export async function bootstrapAdminUser(data: {
+  oidc_issuer: string
+  oidc_subject: string
+  name?: string
+  email?: string
+}): Promise<{ success: boolean; user?: LocalUser; error?: string }> {
+  const name = data.name || ''
+  const email = data.email || ''
+  const now = new Date().toISOString()
+
+  if (isConnected && pool) {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      // Lock table in exclusive mode to prevent concurrent bootstrap race conditions
+      await client.query('LOCK TABLE local_users IN EXCLUSIVE MODE')
+
+      const countRes = await client.query('SELECT COUNT(*) FROM local_users WHERE is_admin = true')
+      const adminCount = parseInt(countRes.rows[0].count, 10)
+
+      if (adminCount > 0) {
+        await client.query('ROLLBACK')
+        return { success: false, error: 'Administrator already exists. Bootstrap is disabled.' }
+      }
+
+      const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const insertRes = await client.query(
+        `INSERT INTO local_users (id, oidc_issuer, oidc_subject, name, email, roles, is_admin, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, true, $7, $7)
+         ON CONFLICT (oidc_issuer, oidc_subject)
+         DO UPDATE SET
+           roles = '["admin"]'::jsonb,
+           is_admin = true,
+           name = CASE WHEN local_users.name IS NOT NULL AND local_users.name <> '' THEN local_users.name ELSE $4 END,
+           email = CASE WHEN local_users.email IS NOT NULL AND local_users.email <> '' THEN local_users.email ELSE $5 END,
+           updated_at = $7
+         RETURNING *`,
+        [id, data.oidc_issuer, data.oidc_subject, name, email, JSON.stringify(['admin']), now]
+      )
+
+      await client.query('COMMIT')
+      return { success: true, user: mapRowToUser(insertRes.rows[0]) }
+    } catch (err: any) {
+      await client.query('ROLLBACK')
+      console.error('[Database] Error in bootstrapAdminUser transaction:', err)
+      return { success: false, error: err.message || 'Database error during bootstrap' }
+    } finally {
+      client.release()
+    }
+  }
+
+  // Fallback mutex locking for atomic concurrency protection
+  return await bootstrapMutex.runExclusive(async () => {
+    const adminCount = Array.from(memoryUsers.values()).filter(u => u.is_admin).length
+    if (adminCount > 0) {
+      return { success: false, error: 'Administrator already exists. Bootstrap is disabled.' }
+    }
+
+    const existing = Array.from(memoryUsers.values()).find(
+      u => u.oidc_issuer === data.oidc_issuer && u.oidc_subject === data.oidc_subject
+    )
+
+    if (existing) {
+      existing.is_admin = true
+      if (!existing.roles.includes('admin')) {
+        existing.roles = Array.from(new Set([...existing.roles, 'admin']))
+      }
+      if (!existing.name && name) existing.name = name
+      if (!existing.email && email) existing.email = email
+      existing.updated_at = now
+      memoryUsers.set(existing.id, existing)
+      return { success: true, user: { ...existing } }
+    } else {
+      const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const newUser: LocalUser = {
+        id,
+        oidc_issuer: data.oidc_issuer,
+        oidc_subject: data.oidc_subject,
+        name,
+        email,
+        roles: ['admin'],
+        is_admin: true,
+        created_at: now,
+        updated_at: now,
+      }
+      memoryUsers.set(id, newUser)
+      return { success: true, user: { ...newUser } }
+    }
+  })
+}
+
+export async function resetDbForTests(): Promise<void> {
+  memoryStore.clear()
+  memoryUsers.clear()
+  if (isConnected && pool) {
+    try {
+      await pool.query('TRUNCATE TABLE entity_store, local_users')
+    } catch {
+      // ignore
+    }
+  }
 }
 
 export async function getAllEntities(tableName: string): Promise<any[]> {

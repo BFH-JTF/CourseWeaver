@@ -6,6 +6,8 @@ import {
   deleteEntity,
   isDbConnected,
 } from '../db'
+import { authRouter } from './auth'
+import { usersRouter } from './users'
 
 export const apiRouter = Router()
 
@@ -17,6 +19,12 @@ apiRouter.get('/health', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+// Authentication & bootstrap routes
+apiRouter.use('/auth', authRouter)
+
+// User & role management routes
+apiRouter.use('/users', usersRouter)
 
 // GET all items for an entity table
 apiRouter.get('/:entity', async (req: Request, res: Response) => {

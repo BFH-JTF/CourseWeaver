@@ -4,6 +4,22 @@
       <v-app-bar-nav-icon @click="drawer = !drawer" />
       <v-app-bar-title>CourseWeaver</v-app-bar-title>
       <v-spacer />
+      
+      <!-- Logged-in User Display -->
+      <div v-if="auth.isAuthenticated" class="d-flex align-center me-2">
+        <v-chip
+          variant="flat"
+          color="rgba(255, 255, 255, 0.18)"
+          class="text-white font-weight-medium px-3"
+        >
+          <v-icon start size="18">{{ auth.isAdmin ? 'mdi-shield-crown' : 'mdi-account-circle' }}</v-icon>
+          <span class="text-truncate" style="max-width: 180px;">{{ localUserName }}</span>
+          <v-tooltip activator="parent" location="bottom">
+            Logged in as {{ localUserName }} ({{ auth.isAdmin ? 'Administrator' : 'User' }})
+          </v-tooltip>
+        </v-chip>
+      </div>
+
       <v-btn icon to="/settings" v-if="auth.isAuthenticated">
         <v-icon>mdi-cog</v-icon>
         <v-tooltip activator="parent">Settings</v-tooltip>
@@ -16,6 +32,14 @@
 
     <v-navigation-drawer v-model="drawer" temporary>
       <v-list nav>
+        <v-list-item
+          v-if="auth.isAuthenticated"
+          :prepend-icon="auth.isAdmin ? 'mdi-shield-crown' : 'mdi-account-circle'"
+          :title="localUserName"
+          :subtitle="auth.isAdmin ? 'Administrator' : 'User'"
+          class="mb-2"
+        />
+        <v-divider v-if="auth.isAuthenticated" class="mb-2" />
         <v-list-item
           v-for="item in navItems"
           :key="item.to"
@@ -42,6 +66,8 @@ const drawer = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
 
+const localUserName = computed(() => auth.localUser?.name || auth.userName || 'User')
+
 const navItems = computed(() => {
   const items = [
     { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/' },
@@ -61,6 +87,8 @@ const navItems = computed(() => {
 
 async function handleLogout() {
   await auth.logout()
-  router.push({ name: 'login' })
+  if (!auth.isAuthenticated) {
+    router.push({ name: 'login' })
+  }
 }
 </script>
