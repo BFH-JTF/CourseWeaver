@@ -5,6 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { initDatabase } from './db'
 import { apiRouter } from './routes/api'
+import { timetableRouter } from './routes/timetable'
 
 dotenv.config()
 
@@ -20,6 +21,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
 // REST API routes
+app.use('/api/timetable', timetableRouter)
 app.use('/api', apiRouter)
 
 // Serve production static assets if available
