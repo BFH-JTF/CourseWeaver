@@ -66,9 +66,51 @@ export function useCompetencies() {
     }
   }
 
-  async function importCsv(_text: string): Promise<Competency[]> {
-    // Import logic does not exist yet and will be shared among several components.
-    return []
+  async function importCompetencies(items: Competency[]): Promise<Competency[]> {
+    error.value = null
+    const imported: Competency[] = []
+    try {
+      for (const item of items) {
+        const saved = await createEntity<Competency>(EntityTables.COMPETENCY, item)
+        item.id = saved.id
+        imported.push(item)
+      }
+      competencies.value = await fetchEntities<Competency>(EntityTables.COMPETENCY)
+      return imported
+    } catch (e: any) {
+      error.value = e.message
+      throw e
+    }
+  }
+
+  async function importCsv(text: string): Promise<Competency[]> {
+    const lines = text.split(/\r?\n/).filter(l => l.trim())
+    if (lines.length < 2) throw new Error('CSV must contain a header row and at least one data row')
+
+    const headers = (lines[0] ?? '').split(',').map(h => h.trim().toLowerCase())
+    const imported: Competency[] = []
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i] ?? ''
+      const values = line.split(',').map(v => v.trim())
+      if (values.length !== headers.length) continue
+      const obj: Record<string, string> = {}
+      for (let j = 0; j < headers.length; j++) {
+        const h = headers[j]
+        if (h !== undefined) obj[h] = values[j] ?? ''
+      }
+      const comp: Competency = {
+        name: obj.name || obj.topic || obj.category || 'Unnamed Competency',
+        category: obj.category || undefined,
+        topic: obj.topic || undefined,
+        description: obj.description || undefined,
+        level: obj.level as any,
+      }
+      await addCompetency(comp)
+      imported.push(comp)
+    }
+
+    return imported
   }
 
   return {
@@ -79,6 +121,7 @@ export function useCompetencies() {
     addCompetency,
     updateCompetency,
     removeCompetency,
+    importCompetencies,
     importCsv,
     emptyCompetency,
   }

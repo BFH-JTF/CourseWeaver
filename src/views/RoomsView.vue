@@ -13,8 +13,7 @@
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
             <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddRoom">Add Room</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="roomCsvInput?.click()">Import CSV</v-btn>
-            <input ref="roomCsvInput" type="file" accept=".csv" class="d-none" @change="handleRoomCsvImport" />
+            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('rooms')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -74,8 +73,7 @@
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
             <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddLocation">Add Location</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="locCsvInput?.click()">Import CSV</v-btn>
-            <input ref="locCsvInput" type="file" accept=".csv" class="d-none" @change="handleLocCsvImport" />
+            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('locations')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -132,6 +130,12 @@
       @save="handleLocationSave"
     />
 
+    <CsvImportDialog
+      v-model="csvImportDialogOpen"
+      :initial-type="csvImportType"
+      @imported="handleCsvImported"
+    />
+
     <v-dialog v-model="deleteDialogOpen" max-width="420">
       <v-card>
         <v-card-title>Confirm deletion</v-card-title>
@@ -158,8 +162,10 @@ import { useRooms } from '@/composables/useRooms'
 import { useLocations } from '@/composables/useLocations'
 import RoomFormDialog from '@/components/RoomFormDialog.vue'
 import LocationFormDialog from '@/components/LocationFormDialog.vue'
+import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
+import type { ImportType } from '@/types/csvImport'
 
 const {
   rooms,
@@ -167,7 +173,6 @@ const {
   addRoom,
   updateRoom,
   removeRoom,
-  importCsv: importRoomCsv,
 } = useRooms()
 
 const {
@@ -176,7 +181,6 @@ const {
   addLocation,
   updateLocation,
   removeLocation,
-  importCsv: importLocationCsv,
 } = useLocations()
 
 const activeTab = ref('rooms')
@@ -185,13 +189,14 @@ const roomSearch = ref('')
 const roomDialogOpen = ref(false)
 const editRoom = ref<Room | undefined>(undefined)
 const roomSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
-const roomCsvInput = ref<HTMLInputElement>()
 
 const locSearch = ref('')
 const locDialogOpen = ref(false)
 const editLocation = ref<Location | undefined>(undefined)
 const locSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
-const locCsvInput = ref<HTMLInputElement>()
+
+const csvImportDialogOpen = ref(false)
+const csvImportType = ref<ImportType>('rooms')
 
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
@@ -351,32 +356,22 @@ async function handleDelete() {
   deleteDialogOpen.value = false
 }
 
-async function handleRoomCsvImport(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  try {
-    const text = await file.text()
-    await importRoomCsv(text)
-    showSnackbar('Rooms imported')
-  } catch (e: any) {
-    showSnackbar(e.message ?? 'CSV import failed', 'error')
-  }
-  input.value = ''
+function openCsvImport(type: ImportType) {
+  csvImportType.value = type
+  csvImportDialogOpen.value = true
 }
 
-async function handleLocCsvImport(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  try {
-    const text = await file.text()
-    await importLocationCsv(text)
-    showSnackbar('Locations imported')
-  } catch (e: any) {
-    showSnackbar(e.message ?? 'CSV import failed', 'error')
+async function handleCsvImported(payload: { type: ImportType; count: number; items: any[] }) {
+  if (payload.type === 'rooms') {
+    await fetchRooms()
+    showSnackbar(`${payload.count} room${payload.count === 1 ? '' : 's'} imported successfully`)
+  } else if (payload.type === 'locations') {
+    await fetchLocations()
+    showSnackbar(`${payload.count} location${payload.count === 1 ? '' : 's'} imported successfully`)
+  } else {
+    await Promise.all([fetchRooms(), fetchLocations()])
+    showSnackbar(`${payload.count} items imported successfully`)
   }
-  input.value = ''
 }
 
 function showSnackbar(text: string, color: string = 'success') {

@@ -14,8 +14,7 @@
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
             <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddCompetency">Add Competency</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="competencyCsvInput?.click()">Import CSV</v-btn>
-            <input ref="competencyCsvInput" type="file" accept=".csv" class="d-none" @change="handleCompetencyCsvImport" />
+            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="csvImportDialogOpen = true">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -76,6 +75,12 @@
       @save="handleCompetencySave"
     />
 
+    <CsvImportDialog
+      v-model="csvImportDialogOpen"
+      initial-type="competencies"
+      @imported="handleCsvImported"
+    />
+
     <v-dialog v-model="deleteDialogOpen" max-width="420">
       <v-card>
         <v-card-title>Confirm deletion</v-card-title>
@@ -100,7 +105,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useCompetencies } from '@/composables/useCompetencies'
 import CompetencyFormDialog from '@/components/CompetencyFormDialog.vue'
+import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Competency } from '@/types/competency'
+import type { ImportType } from '@/types/csvImport'
 
 const {
   competencies,
@@ -108,7 +115,6 @@ const {
   addCompetency,
   updateCompetency,
   removeCompetency,
-  importCsv: importCompetencyCsv,
 } = useCompetencies()
 
 const activeTab = ref('competencies')
@@ -117,7 +123,7 @@ const competencySearch = ref('')
 const competencyDialogOpen = ref(false)
 const editCompetency = ref<Competency | undefined>(undefined)
 const competencySortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
-const competencyCsvInput = ref<HTMLInputElement>()
+const csvImportDialogOpen = ref(false)
 
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
@@ -203,18 +209,9 @@ async function handleDelete() {
   deleteDialogOpen.value = false
 }
 
-async function handleCompetencyCsvImport(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  try {
-    const text = await file.text()
-    await importCompetencyCsv(text)
-    showSnackbar('Competencies imported')
-  } catch (e: any) {
-    showSnackbar(e.message ?? 'CSV import failed', 'error')
-  }
-  input.value = ''
+async function handleCsvImported(payload: { type: ImportType; count: number; items: any[] }) {
+  await fetchCompetencies()
+  showSnackbar(`${payload.count} competency${payload.count === 1 ? '' : 'ies'} imported successfully`)
 }
 
 function showSnackbar(text: string, color: string = 'success') {

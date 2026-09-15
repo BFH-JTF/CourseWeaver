@@ -166,6 +166,23 @@ export function useRooms() {
     }
   }
 
+  async function importRooms(items: Room[]): Promise<Room[]> {
+    error.value = null
+    const imported: Room[] = []
+    try {
+      for (const item of items) {
+        const saved = await createEntity<Room>(EntityTables.ROOM, item)
+        item.id = saved.id
+        imported.push(item)
+      }
+      rooms.value = await fetchEntities<Room>(EntityTables.ROOM)
+      return imported
+    } catch (e: any) {
+      error.value = e.message
+      throw e
+    }
+  }
+
   async function importCsv(text: string) {
     const lines = text.split(/\r?\n/).filter(l => l.trim())
     if (lines.length < 2) throw new Error('CSV must contain a header row and at least one data row')
@@ -194,6 +211,7 @@ export function useRooms() {
     addRoom,
     updateRoom,
     removeRoom,
+    importRooms,
     importCsv,
     emptyRoom,
   }

@@ -1,6 +1,15 @@
 <template>
   <v-container>
-    <h1>Modules</h1>
+    <div class="d-flex align-center justify-space-between mb-1">
+      <h1>Modules</h1>
+      <v-btn
+        variant="outlined"
+        prepend-icon="mdi-file-import"
+        @click="csvImportDialogOpen = true"
+      >
+        Import CSV
+      </v-btn>
+    </div>
     <p class="text-body-1 mt-2 mb-4">
       Manage modules, their details (credits, hours), and inter-module constraints (prerequisites, corequisites, exclusions).
     </p>
@@ -29,16 +38,38 @@
         </tr>
       </tbody>
     </v-table>
+
+    <CsvImportDialog
+      v-model="csvImportDialogOpen"
+      initial-type="modules"
+      @imported="handleCsvImported"
+    />
+
+    <v-snackbar v-model="snackbar" color="success" :timeout="3000">
+      {{ snackbarText }}
+    </v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useCurriculumStore } from '@/stores/curriculum'
+import CsvImportDialog from '@/components/CsvImportDialog.vue'
+import type { ImportType } from '@/types/csvImport'
 
 const store = useCurriculumStore()
 const { modules } = storeToRefs(store)
+
+const csvImportDialogOpen = ref(false)
+const snackbar = ref(false)
+const snackbarText = ref('')
+
+function handleCsvImported(payload: { type: ImportType; count: number; items: any[] }) {
+  store.fetchModules()
+  snackbarText.value = `${payload.count} module${payload.count === 1 ? '' : 's'} imported successfully`
+  snackbar.value = true
+}
 
 onMounted(() => {
   store.fetchModules()

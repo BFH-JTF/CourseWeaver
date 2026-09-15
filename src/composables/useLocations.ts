@@ -84,6 +84,23 @@ export function useLocations() {
     }
   }
 
+  async function importLocations(items: Location[]): Promise<Location[]> {
+    error.value = null
+    const imported: Location[] = []
+    try {
+      for (const item of items) {
+        const saved = await createEntity<Location>(EntityTables.LOCATION, item)
+        item.id = saved.id
+        imported.push(item)
+      }
+      locations.value = await fetchEntities<Location>(EntityTables.LOCATION)
+      return imported
+    } catch (e: any) {
+      error.value = e.message
+      throw e
+    }
+  }
+
   async function importCsv(text: string) {
     const lines = text.split(/\r?\n/).filter(l => l.trim())
     if (lines.length < 2) throw new Error('CSV must contain a header row and at least one data row')
@@ -112,6 +129,7 @@ export function useLocations() {
     addLocation,
     updateLocation,
     removeLocation,
+    importLocations,
     importCsv,
     emptyLocation,
   }
