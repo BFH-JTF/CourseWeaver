@@ -3,6 +3,9 @@ import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
+import type { Department, Program, Degree, Module, ModuleConstraint } from '@/types/curriculum'
+
+export type { Department, Program, Degree, Module, ModuleConstraint }
 
 export interface CurriculumVersion {
   _id?: string
@@ -22,26 +25,10 @@ export interface StudyProgram {
   degreeType?: string
   version?: number
   curriculumVersionId?: string
-}
-
-export interface Module {
-  _id?: string
-  id?: string
-  name: string
-  description?: string
-  code?: string
-  creditPoints?: number
-  contactHours?: number
-  selfStudyHours?: number
-  teachingHours?: number
-  constraints?: ModuleConstraint[]
-  curriculumVersionId?: string
-  studyProgramIds?: string[]
-}
-
-export interface ModuleConstraint {
-  type: 'requires' | 'corequisite' | 'forbids'
-  targetModuleId: string
+  departmentIDs?: string[]
+  contact?: string
+  url?: string
+  URL?: string
 }
 
 export interface Semester {
@@ -103,16 +90,14 @@ export interface TaxonomyItem {
   parentTaxonomyItemId?: string
 }
 
-// Entity mapping for Postgres JSONB backend
-const DocType = EntityTables
-
-export { DocType }
-
 export const useCurriculumStore = defineStore('curriculum', () => {
   const { fetchEntities } = usePostgres()
 
   const curriculumVersions = ref<CurriculumVersion[]>([])
   const studyPrograms = ref<StudyProgram[]>([])
+  const departments = ref<Department[]>([])
+  const programs = ref<Program[]>([])
+  const degrees = ref<Degree[]>([])
   const modules = ref<Module[]>([])
   const semesters = ref<Semester[]>([])
   const lessons = ref<Lesson[]>([])
@@ -122,6 +107,42 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const taxonomyItems = ref<TaxonomyItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  async function fetchDepartments() {
+    loading.value = true
+    error.value = null
+    try {
+      departments.value = await fetchEntities<Department>(EntityTables.DEPARTMENT)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchPrograms() {
+    loading.value = true
+    error.value = null
+    try {
+      programs.value = await fetchEntities<Program>(EntityTables.PROGRAM)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchDegrees() {
+    loading.value = true
+    error.value = null
+    try {
+      degrees.value = await fetchEntities<Degree>(EntityTables.DEGREE)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
 
   async function fetchCurriculumVersions() {
     loading.value = true
@@ -234,6 +255,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   return {
     curriculumVersions,
     studyPrograms,
+    departments,
+    programs,
+    degrees,
     modules,
     semesters,
     lessons,
@@ -245,6 +269,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     error,
     fetchCurriculumVersions,
     fetchStudyPrograms,
+    fetchDepartments,
+    fetchPrograms,
+    fetchDegrees,
     fetchModules,
     fetchSemesters,
     fetchLessons,

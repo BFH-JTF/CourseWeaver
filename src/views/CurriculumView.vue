@@ -1,82 +1,717 @@
 <template>
   <v-container>
-    <div class="d-flex align-center justify-space-between mb-1">
-      <h1>Curriculum Mapping</h1>
-      <v-btn
-        variant="outlined"
-        prepend-icon="mdi-file-import"
-        @click="csvImportDialogOpen = true"
-      >
-        Import CSV
-      </v-btn>
-    </div>
-    <p class="text-body-1 mt-2 mb-4">
-      Import and manage study programs, degrees, modules, and lessons. Map taxonomy items to lessons and track curriculum versions.
+    <h1 class="mb-1">Curriculum</h1>
+    <p class="text-body-2 text-medium-emphasis mb-4">
+      Manage departments, programs, degrees, and modules across the curriculum.
     </p>
-    <v-row>
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>Curriculum Versions</v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item v-for="v in curriculumVersions" :key="v._id" :title="v.name">
-                <template #append>
-                  <v-chip size="small">v{{ v.version }}</v-chip>
-                </template>
-              </v-list-item>
-              <v-list-item v-if="curriculumVersions.length === 0" title="No curriculum versions yet" />
-            </v-list>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>Study Programs</v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item v-for="sp in studyPrograms" :key="sp._id" :title="sp.name" :subtitle="sp.degreeType" />
-              <v-list-item v-if="studyPrograms.length === 0" title="No study programs yet" />
-            </v-list>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+
+    <v-tabs v-model="activeTab">
+      <v-tab value="departments">Departments</v-tab>
+      <v-tab value="programs">Programs</v-tab>
+      <v-tab value="degrees">Degrees</v-tab>
+      <v-tab value="modules">Modules</v-tab>
+    </v-tabs>
+
+    <v-window v-model="activeTab" class="mt-4">
+      <!-- Departments Tab -->
+      <v-window-item value="departments">
+        <v-row class="align-center mb-4">
+          <v-col cols="12" sm="6" class="d-flex ga-2">
+            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddDepartment">Add Department</v-btn>
+            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('departments')">Import CSV</v-btn>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="deptSearch"
+              prepend-inner-icon="mdi-magnify"
+              label="Search departments"
+              single-line
+              hide-details
+              clearable
+              density="compact"
+            />
+          </v-col>
+        </v-row>
+
+        <v-data-table
+          :headers="deptHeaders"
+          :items="filteredDepartments"
+          :sort-by="deptSortBy"
+          @update:sort-by="deptSortBy = $event"
+          hover
+          items-per-page="15"
+        >
+          <template #item.description="{ item }">
+            {{ item.description || '-' }}
+          </template>
+          <template #item.contact="{ item }">
+            {{ item.contact || '-' }}
+          </template>
+          <template #item.url="{ item }">
+            <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
+              {{ item.url || item.URL }}
+            </a>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.actions="{ item }">
+            <v-btn icon variant="text" size="small" @click="openEditDepartment(item)">
+              <v-icon>mdi-pencil</v-icon>
+              <v-tooltip activator="parent">Edit</v-tooltip>
+            </v-btn>
+            <v-btn icon variant="text" size="small" @click="confirmDeleteDepartment(item)">
+              <v-icon>mdi-delete</v-icon>
+              <v-tooltip activator="parent">Delete</v-tooltip>
+            </v-btn>
+          </template>
+          <template #no-data>
+            <div class="text-center pa-4">
+              <v-icon size="64" color="grey-lighten-1">mdi-domain</v-icon>
+              <p class="mt-2 text-medium-emphasis">No departments found.</p>
+            </div>
+          </template>
+        </v-data-table>
+      </v-window-item>
+
+      <!-- Programs Tab -->
+      <v-window-item value="programs">
+        <v-row class="align-center mb-4">
+          <v-col cols="12" sm="6" class="d-flex ga-2">
+            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddProgram">Add Program</v-btn>
+            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('programs')">Import CSV</v-btn>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="progSearch"
+              prepend-inner-icon="mdi-magnify"
+              label="Search programs"
+              single-line
+              hide-details
+              clearable
+              density="compact"
+            />
+          </v-col>
+        </v-row>
+
+        <v-data-table
+          :headers="progHeaders"
+          :items="filteredPrograms"
+          :sort-by="progSortBy"
+          @update:sort-by="progSortBy = $event"
+          hover
+          items-per-page="15"
+        >
+          <template #item.departmentIDs="{ item }">
+            <template v-if="getDepartmentNames(item).length">
+              <v-chip v-for="name in getDepartmentNames(item)" :key="name" size="x-small" variant="tonal" color="primary" class="mr-1">
+                {{ name }}
+              </v-chip>
+            </template>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.description="{ item }">
+            {{ item.description || '-' }}
+          </template>
+          <template #item.contact="{ item }">
+            {{ item.contact || '-' }}
+          </template>
+          <template #item.url="{ item }">
+            <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
+              {{ item.url || item.URL }}
+            </a>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.actions="{ item }">
+            <v-btn icon variant="text" size="small" @click="openEditProgram(item)">
+              <v-icon>mdi-pencil</v-icon>
+              <v-tooltip activator="parent">Edit</v-tooltip>
+            </v-btn>
+            <v-btn icon variant="text" size="small" @click="confirmDeleteProgram(item)">
+              <v-icon>mdi-delete</v-icon>
+              <v-tooltip activator="parent">Delete</v-tooltip>
+            </v-btn>
+          </template>
+          <template #no-data>
+            <div class="text-center pa-4">
+              <v-icon size="64" color="grey-lighten-1">mdi-school-outline</v-icon>
+              <p class="mt-2 text-medium-emphasis">No programs found.</p>
+            </div>
+          </template>
+        </v-data-table>
+      </v-window-item>
+
+      <!-- Degrees Tab -->
+      <v-window-item value="degrees">
+        <v-row class="align-center mb-4">
+          <v-col cols="12" sm="6" class="d-flex ga-2">
+            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
+            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('degrees')">Import CSV</v-btn>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="degSearch"
+              prepend-inner-icon="mdi-magnify"
+              label="Search degrees"
+              single-line
+              hide-details
+              clearable
+              density="compact"
+            />
+          </v-col>
+        </v-row>
+
+        <v-data-table
+          :headers="degHeaders"
+          :items="filteredDegrees"
+          :sort-by="degSortBy"
+          @update:sort-by="degSortBy = $event"
+          hover
+          items-per-page="15"
+        >
+          <template #item.ProgramIDs="{ item }">
+            <template v-if="getProgramNames(item).length">
+              <v-chip v-for="name in getProgramNames(item)" :key="name" size="x-small" variant="tonal" color="secondary" class="mr-1">
+                {{ name }}
+              </v-chip>
+            </template>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.description="{ item }">
+            {{ item.description || '-' }}
+          </template>
+          <template #item.contact="{ item }">
+            {{ item.contact || '-' }}
+          </template>
+          <template #item.url="{ item }">
+            <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
+              {{ item.url || item.URL }}
+            </a>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.actions="{ item }">
+            <v-btn icon variant="text" size="small" @click="openEditDegree(item)">
+              <v-icon>mdi-pencil</v-icon>
+              <v-tooltip activator="parent">Edit</v-tooltip>
+            </v-btn>
+            <v-btn icon variant="text" size="small" @click="confirmDeleteDegree(item)">
+              <v-icon>mdi-delete</v-icon>
+              <v-tooltip activator="parent">Delete</v-tooltip>
+            </v-btn>
+          </template>
+          <template #no-data>
+            <div class="text-center pa-4">
+              <v-icon size="64" color="grey-lighten-1">mdi-certificate-outline</v-icon>
+              <p class="mt-2 text-medium-emphasis">No degrees found.</p>
+            </div>
+          </template>
+        </v-data-table>
+      </v-window-item>
+
+      <!-- Modules Tab -->
+      <v-window-item value="modules">
+        <v-row class="align-center mb-4">
+          <v-col cols="12" sm="6" class="d-flex ga-2">
+            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
+            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('modules')">Import CSV</v-btn>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="modSearch"
+              prepend-inner-icon="mdi-magnify"
+              label="Search modules"
+              single-line
+              hide-details
+              clearable
+              density="compact"
+            />
+          </v-col>
+        </v-row>
+
+        <v-data-table
+          :headers="modHeaders"
+          :items="filteredModules"
+          :sort-by="modSortBy"
+          @update:sort-by="modSortBy = $event"
+          hover
+          items-per-page="15"
+        >
+          <template #item.code="{ item }">
+            {{ item.code || '-' }}
+          </template>
+          <template #item.DegreeIDs="{ item }">
+            <template v-if="getDegreeNames(item).length">
+              <v-chip v-for="name in getDegreeNames(item)" :key="name" size="x-small" variant="tonal" color="teal" class="mr-1">
+                {{ name }}
+              </v-chip>
+            </template>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.creditPoints="{ item }">
+            {{ item.creditPoints ?? '-' }}
+          </template>
+          <template #item.contactHours="{ item }">
+            {{ item.contactHours ?? '-' }}
+          </template>
+          <template #item.selfStudyHours="{ item }">
+            {{ item.selfStudyHours ?? '-' }}
+          </template>
+          <template #item.constraints="{ item }">
+            <template v-if="item.constraints && item.constraints.length">
+              <v-chip
+                v-for="(c, idx) in item.constraints"
+                :key="idx"
+                size="x-small"
+                :color="c.type === 'requires' ? 'info' : c.type === 'corequisite' ? 'warning' : 'error'"
+                variant="tonal"
+                class="mr-1"
+              >
+                {{ c.type }}: {{ getModuleName(c.targetModuleId) }}
+              </v-chip>
+            </template>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.actions="{ item }">
+            <v-btn icon variant="text" size="small" @click="openEditModule(item)">
+              <v-icon>mdi-pencil</v-icon>
+              <v-tooltip activator="parent">Edit</v-tooltip>
+            </v-btn>
+            <v-btn icon variant="text" size="small" @click="confirmDeleteModule(item)">
+              <v-icon>mdi-delete</v-icon>
+              <v-tooltip activator="parent">Delete</v-tooltip>
+            </v-btn>
+          </template>
+          <template #no-data>
+            <div class="text-center pa-4">
+              <v-icon size="64" color="grey-lighten-1">mdi-book-open-page-variant</v-icon>
+              <p class="mt-2 text-medium-emphasis">No modules found.</p>
+            </div>
+          </template>
+        </v-data-table>
+      </v-window-item>
+    </v-window>
+
+    <DepartmentFormDialog
+      v-model="deptDialogOpen"
+      :department-data="editDepartment"
+      @save="handleDepartmentSave"
+    />
+
+    <ProgramFormDialog
+      v-model="progDialogOpen"
+      :program-data="editProgram"
+      :departments="departments"
+      @save="handleProgramSave"
+    />
+
+    <DegreeFormDialog
+      v-model="degDialogOpen"
+      :degree-data="editDegree"
+      :programs="programs"
+      @save="handleDegreeSave"
+    />
+
+    <ModuleFormDialog
+      v-model="modDialogOpen"
+      :module-data="editModule"
+      :degrees="degrees"
+      @save="handleModuleSave"
+    />
 
     <CsvImportDialog
       v-model="csvImportDialogOpen"
-      initial-type="study_programs"
+      :initial-type="csvImportType"
       @imported="handleCsvImported"
     />
 
-    <v-snackbar v-model="snackbar" color="success" :timeout="3000">
+    <v-dialog v-model="deleteDialogOpen" max-width="420">
+      <v-card>
+        <v-card-title>Confirm deletion</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete <strong>{{ deleteTargetName }}</strong>?
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="deleteDialogOpen = false">Cancel</v-btn>
+          <v-btn color="error" variant="flat" @click="handleDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">
       {{ snackbarText }}
     </v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useCurriculumStore } from '@/stores/curriculum'
+import { ref, computed, onMounted } from 'vue'
+import { useDepartments } from '@/composables/useDepartments'
+import { usePrograms } from '@/composables/usePrograms'
+import { useDegrees } from '@/composables/useDegrees'
+import { useModules } from '@/composables/useModules'
+import DepartmentFormDialog from '@/components/DepartmentFormDialog.vue'
+import ProgramFormDialog from '@/components/ProgramFormDialog.vue'
+import DegreeFormDialog from '@/components/DegreeFormDialog.vue'
+import ModuleFormDialog from '@/components/ModuleFormDialog.vue'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
+import type { Department, Program, Degree, Module } from '@/types/curriculum'
 import type { ImportType } from '@/types/csvImport'
 
-const store = useCurriculumStore()
-const { curriculumVersions, studyPrograms } = storeToRefs(store)
+const {
+  departments,
+  fetchDepartments,
+  addDepartment,
+  updateDepartment,
+  removeDepartment,
+} = useDepartments()
+
+const {
+  programs,
+  fetchPrograms,
+  addProgram,
+  updateProgram,
+  removeProgram,
+} = usePrograms()
+
+const {
+  degrees,
+  fetchDegrees,
+  addDegree,
+  updateDegree,
+  removeDegree,
+} = useDegrees()
+
+const {
+  modules,
+  fetchModules,
+  addModule,
+  updateModule,
+  removeModule,
+} = useModules()
+
+const activeTab = ref<'departments' | 'programs' | 'degrees' | 'modules'>('departments')
+
+const deptSearch = ref('')
+const deptDialogOpen = ref(false)
+const editDepartment = ref<Department | undefined>(undefined)
+const deptSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+
+const progSearch = ref('')
+const progDialogOpen = ref(false)
+const editProgram = ref<Program | undefined>(undefined)
+const progSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+
+const degSearch = ref('')
+const degDialogOpen = ref(false)
+const editDegree = ref<Degree | undefined>(undefined)
+const degSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+
+const modSearch = ref('')
+const modDialogOpen = ref(false)
+const editModule = ref<Module | undefined>(undefined)
+const modSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
 
 const csvImportDialogOpen = ref(false)
+const csvImportType = ref<ImportType>('departments')
+
+const deleteDialogOpen = ref(false)
+const deleteTargetName = ref('')
+let deleteKind: 'department' | 'program' | 'degree' | 'module' = 'department'
+let deleteId = ''
+
 const snackbar = ref(false)
 const snackbarText = ref('')
+const snackbarColor = ref('success')
 
-function handleCsvImported(payload: { type: ImportType; count: number; items: any[] }) {
-  store.fetchStudyPrograms()
-  store.fetchCurriculumVersions()
-  snackbarText.value = `${payload.count} study program${payload.count === 1 ? '' : 's'} imported successfully`
+const deptHeaders = [
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Description', key: 'description', sortable: true },
+  { title: 'Contact', key: 'contact', sortable: true },
+  { title: 'URL', key: 'url', sortable: true },
+  { title: '', key: 'actions', sortable: false, width: '100px' },
+]
+
+const progHeaders = [
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Departments', key: 'departmentIDs', sortable: false },
+  { title: 'Description', key: 'description', sortable: true },
+  { title: 'Contact', key: 'contact', sortable: true },
+  { title: 'URL', key: 'url', sortable: true },
+  { title: '', key: 'actions', sortable: false, width: '100px' },
+]
+
+const degHeaders = [
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Programs', key: 'ProgramIDs', sortable: false },
+  { title: 'Description', key: 'description', sortable: true },
+  { title: 'Contact', key: 'contact', sortable: true },
+  { title: 'URL', key: 'url', sortable: true },
+  { title: '', key: 'actions', sortable: false, width: '100px' },
+]
+
+const modHeaders = [
+  { title: 'Code', key: 'code', sortable: true },
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Degrees', key: 'DegreeIDs', sortable: false },
+  { title: 'ECTS', key: 'creditPoints', sortable: true },
+  { title: 'Contact hrs', key: 'contactHours', sortable: true },
+  { title: 'Self-study', key: 'selfStudyHours', sortable: true },
+  { title: 'Constraints', key: 'constraints', sortable: false },
+  { title: '', key: 'actions', sortable: false, width: '100px' },
+]
+
+function getDepartmentNames(prog: Program): string[] {
+  const ids = prog.departmentIDs ?? prog.departmentIds ?? []
+  return ids.map(id => {
+    const dept = departments.value.find(d => d.id === id)
+    return dept ? dept.name : id
+  })
+}
+
+function getProgramNames(deg: Degree): string[] {
+  const ids = deg.ProgramIDs ?? deg.programIDs ?? deg.programIds ?? []
+  return ids.map(id => {
+    const prog = programs.value.find(p => p.id === id)
+    return prog ? prog.name : id
+  })
+}
+
+function getDegreeNames(mod: Module): string[] {
+  const ids = mod.DegreeIDs ?? mod.degreeIDs ?? mod.degreeIds ?? []
+  return ids.map(id => {
+    const deg = degrees.value.find(d => d.id === id)
+    return deg ? deg.name : id
+  })
+}
+
+function getModuleName(moduleId: string): string {
+  const mod = modules.value.find(m => m.id === moduleId)
+  return mod ? (mod.code || mod.name) : moduleId
+}
+
+const filteredDepartments = computed(() => {
+  if (!deptSearch.value) return departments.value
+  const q = deptSearch.value.toLowerCase()
+  return departments.value.filter(d =>
+    d.name.toLowerCase().includes(q) ||
+    (d.description ?? '').toLowerCase().includes(q) ||
+    (d.contact ?? '').toLowerCase().includes(q)
+  )
+})
+
+const filteredPrograms = computed(() => {
+  if (!progSearch.value) return programs.value
+  const q = progSearch.value.toLowerCase()
+  return programs.value.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    (p.description ?? '').toLowerCase().includes(q) ||
+    (p.contact ?? '').toLowerCase().includes(q) ||
+    getDepartmentNames(p).some(n => n.toLowerCase().includes(q))
+  )
+})
+
+const filteredDegrees = computed(() => {
+  if (!degSearch.value) return degrees.value
+  const q = degSearch.value.toLowerCase()
+  return degrees.value.filter(d =>
+    d.name.toLowerCase().includes(q) ||
+    (d.description ?? '').toLowerCase().includes(q) ||
+    (d.contact ?? '').toLowerCase().includes(q) ||
+    getProgramNames(d).some(n => n.toLowerCase().includes(q))
+  )
+})
+
+const filteredModules = computed(() => {
+  if (!modSearch.value) return modules.value
+  const q = modSearch.value.toLowerCase()
+  return modules.value.filter(m =>
+    m.name.toLowerCase().includes(q) ||
+    (m.code ?? '').toLowerCase().includes(q) ||
+    (m.description ?? '').toLowerCase().includes(q) ||
+    (m.contact ?? '').toLowerCase().includes(q) ||
+    getDegreeNames(m).some(n => n.toLowerCase().includes(q))
+  )
+})
+
+function openAddDepartment() {
+  editDepartment.value = undefined
+  deptDialogOpen.value = true
+}
+
+function openEditDepartment(dept: Department) {
+  editDepartment.value = dept
+  deptDialogOpen.value = true
+}
+
+async function handleDepartmentSave(dept: Department) {
+  try {
+    if (dept.id) {
+      await updateDepartment(dept)
+      showSnackbar('Department updated')
+    } else {
+      await addDepartment(dept)
+      showSnackbar('Department added')
+    }
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+function confirmDeleteDepartment(dept: Department) {
+  deleteKind = 'department'
+  deleteId = dept.id ?? ''
+  deleteTargetName.value = dept.name
+  deleteDialogOpen.value = true
+}
+
+function openAddProgram() {
+  editProgram.value = undefined
+  progDialogOpen.value = true
+}
+
+function openEditProgram(prog: Program) {
+  editProgram.value = prog
+  progDialogOpen.value = true
+}
+
+async function handleProgramSave(prog: Program) {
+  try {
+    if (prog.id) {
+      await updateProgram(prog)
+      showSnackbar('Program updated')
+    } else {
+      await addProgram(prog)
+      showSnackbar('Program added')
+    }
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+function confirmDeleteProgram(prog: Program) {
+  deleteKind = 'program'
+  deleteId = prog.id ?? ''
+  deleteTargetName.value = prog.name
+  deleteDialogOpen.value = true
+}
+
+function openAddDegree() {
+  editDegree.value = undefined
+  degDialogOpen.value = true
+}
+
+function openEditDegree(deg: Degree) {
+  editDegree.value = deg
+  degDialogOpen.value = true
+}
+
+async function handleDegreeSave(deg: Degree) {
+  try {
+    if (deg.id) {
+      await updateDegree(deg)
+      showSnackbar('Degree updated')
+    } else {
+      await addDegree(deg)
+      showSnackbar('Degree added')
+    }
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+function confirmDeleteDegree(deg: Degree) {
+  deleteKind = 'degree'
+  deleteId = deg.id ?? ''
+  deleteTargetName.value = deg.name
+  deleteDialogOpen.value = true
+}
+
+function openAddModule() {
+  editModule.value = undefined
+  modDialogOpen.value = true
+}
+
+function openEditModule(mod: Module) {
+  editModule.value = mod
+  modDialogOpen.value = true
+}
+
+async function handleModuleSave(mod: Module) {
+  try {
+    if (mod.id) {
+      await updateModule(mod)
+      showSnackbar('Module updated')
+    } else {
+      await addModule(mod)
+      showSnackbar('Module added')
+    }
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+function confirmDeleteModule(mod: Module) {
+  deleteKind = 'module'
+  deleteId = mod.id ?? ''
+  deleteTargetName.value = mod.name
+  deleteDialogOpen.value = true
+}
+
+async function handleDelete() {
+  try {
+    if (deleteKind === 'department') {
+      await removeDepartment(deleteId)
+      showSnackbar('Department deleted')
+    } else if (deleteKind === 'program') {
+      await removeProgram(deleteId)
+      showSnackbar('Program deleted')
+    } else if (deleteKind === 'degree') {
+      await removeDegree(deleteId)
+      showSnackbar('Degree deleted')
+    } else {
+      await removeModule(deleteId)
+      showSnackbar('Module deleted')
+    }
+  } catch {
+    showSnackbar('Deletion failed', 'error')
+  }
+  deleteDialogOpen.value = false
+}
+
+function openCsvImport(type: ImportType) {
+  csvImportType.value = type
+  csvImportDialogOpen.value = true
+}
+
+async function handleCsvImported(payload: { type: ImportType; count: number; items: any[] }) {
+  const labelMap: Record<string, string> = {
+    departments: 'department',
+    programs: 'program',
+    degrees: 'degree',
+    modules: 'module',
+  }
+  if (payload.type === 'departments') {
+    await fetchDepartments()
+  } else if (payload.type === 'programs') {
+    await fetchPrograms()
+  } else if (payload.type === 'degrees') {
+    await fetchDegrees()
+  } else if (payload.type === 'modules') {
+    await fetchModules()
+  }
+  const singular = labelMap[payload.type] || payload.type
+  showSnackbar(`${payload.count} ${singular}${payload.count === 1 ? '' : 's'} imported successfully`)
+}
+
+function showSnackbar(text: string, color: string = 'success') {
+  snackbarText.value = text
+  snackbarColor.value = color
   snackbar.value = true
 }
 
 onMounted(() => {
-  store.fetchCurriculumVersions()
-  store.fetchStudyPrograms()
+  fetchDepartments()
+  fetchPrograms()
+  fetchDegrees()
+  fetchModules()
 })
 </script>

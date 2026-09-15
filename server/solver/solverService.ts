@@ -90,7 +90,7 @@ export function solveInWorker(
       worker?.terminate()
     })
 
-    worker.on('error', (err) => {
+    worker.on('error', (err: any) => {
       if (settled) return
       settled = true
       if (timeout) clearTimeout(timeout)

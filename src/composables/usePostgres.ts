@@ -28,6 +28,9 @@ export const EntityTables = {
   TAXONOMY: 'taxonomy_items',
   COMPETENCY: 'competencies',
   PROOF_OF_KNOWLEDGE: 'proofs_of_knowledge',
+  DEPARTMENT: 'departments',
+  PROGRAM: 'programs',
+  DEGREE: 'degrees',
 } as const
 
 export type EntityTableName = (typeof EntityTables)[keyof typeof EntityTables]

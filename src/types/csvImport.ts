@@ -1,4 +1,13 @@
-export type ImportType = 'rooms' | 'locations' | 'competencies' | 'modules' | 'study_programs' | 'proofs_of_knowledge'
+export type ImportType =
+  | 'rooms'
+  | 'locations'
+  | 'competencies'
+  | 'modules'
+  | 'study_programs'
+  | 'proofs_of_knowledge'
+  | 'departments'
+  | 'programs'
+  | 'degrees'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 

@@ -1,0 +1,184 @@
+<template>
+  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="700" persistent>
+    <v-card>
+      <v-card-title>{{ isEdit ? 'Edit Module' : 'Add Module' }}</v-card-title>
+      <v-card-text>
+        <v-form ref="formRef" @submit.prevent="submit">
+          <v-text-field
+            v-model="mod.name"
+            label="Name *"
+            :rules="[v => !!v || 'Name is required']"
+          />
+          <v-text-field
+            v-model="mod.code"
+            label="Code"
+          />
+          <v-textarea
+            v-model="mod.description"
+            label="Description"
+            rows="2"
+            auto-grow
+          />
+          <v-select
+            v-model="selectedDegreeIds"
+            :items="degreeItems"
+            item-title="title"
+            item-value="value"
+            label="Degrees"
+            multiple
+            chips
+            clearable
+          />
+          <v-row dense>
+            <v-col cols="12" sm="4">
+              <v-text-field
+                v-model.number="mod.creditPoints"
+                label="Credit Points (ECTS)"
+                type="number"
+                min="0"
+              />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-text-field
+                v-model.number="mod.contactHours"
+                label="Contact Hours"
+                type="number"
+                min="0"
+              />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-text-field
+                v-model.number="mod.selfStudyHours"
+                label="Self-Study Hours"
+                type="number"
+                min="0"
+              />
+            </v-col>
+          </v-row>
+          <v-text-field
+            v-model="mod.contact"
+            label="Contact"
+          />
+          <v-text-field
+            v-model="mod.url"
+            label="URL"
+          />
+
+          <v-divider class="my-4" />
+          <h3 class="text-subtitle-1 mb-2">Constraints</h3>
+          <div v-for="(c, idx) in mod.constraints" :key="idx" class="d-flex align-center ga-2 mb-2">
+            <v-select
+              v-model="c.type"
+              :items="constraintTypeOptions"
+              label="Type"
+              density="compact"
+              style="max-width: 180px"
+            />
+            <v-text-field
+              v-model="c.targetModuleId"
+              label="Target Module ID"
+              density="compact"
+            />
+            <v-btn icon variant="text" size="small" color="error" @click="removeConstraint(idx)">
+              <v-icon>mdi-close</v-icon>
+            </v-btn>
+          </div>
+          <v-btn variant="outlined" size="small" prepend-icon="mdi-plus" @click="addConstraint">
+            Add Constraint
+          </v-btn>
+        </v-form>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" @click="submit">{{ isEdit ? 'Save' : 'Add' }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue'
+import type { Module, ModuleConstraint, Degree } from '@/types/curriculum'
+
+const props = defineProps<{
+  modelValue: boolean
+  moduleData?: Module
+  degrees: Degree[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
+  'save': [mod: Module]
+}>()
+
+const isEdit = computed(() => !!props.moduleData?.id)
+
+const formRef = ref()
+const mod = ref<Module>(emptyModule())
+
+const constraintTypeOptions: { title: string; value: ModuleConstraint['type'] }[] = [
+  { title: 'Requires', value: 'requires' },
+  { title: 'Corequisite', value: 'corequisite' },
+  { title: 'Forbids', value: 'forbids' },
+]
+
+const selectedDegreeIds = computed({
+  get: () => mod.value.DegreeIDs ?? mod.value.degreeIDs ?? mod.value.degreeIds ?? [],
+  set: (val: string[]) => {
+    mod.value.DegreeIDs = val
+    mod.value.degreeIDs = val
+    mod.value.degreeIds = val
+  },
+})
+
+const degreeItems = computed(() =>
+  props.degrees.map(d => ({
+    title: d.name || d.id || 'Unnamed',
+    value: d.id,
+  })).filter(d => d.value)
+)
+
+function emptyModule(): Module {
+  return { name: '', DegreeIDs: [], degreeIDs: [], degreeIds: [], constraints: [] }
+}
+
+function addConstraint() {
+  if (!mod.value.constraints) mod.value.constraints = []
+  mod.value.constraints.push({ type: 'requires', targetModuleId: '' })
+}
+
+function removeConstraint(idx: number) {
+  mod.value.constraints?.splice(idx, 1)
+  if (mod.value.constraints && mod.value.constraints.length === 0) {
+    mod.value.constraints = undefined
+  }
+}
+
+watch(() => props.modelValue, (val) => {
+  if (val) {
+    mod.value = props.moduleData
+      ? JSON.parse(JSON.stringify(props.moduleData))
+      : emptyModule()
+    if (!mod.value.constraints) mod.value.constraints = []
+  }
+})
+
+async function submit() {
+  const { valid } = await formRef.value?.validate() ?? { valid: false }
+  if (!valid) return
+  const result = JSON.parse(JSON.stringify(mod.value))
+  const ids = result.DegreeIDs ?? result.degreeIDs ?? result.degreeIds ?? []
+  result.DegreeIDs = ids
+  result.degreeIDs = ids
+  result.degreeIds = ids
+  if (result.constraints && result.constraints.length === 0) {
+    delete result.constraints
+  }
+  if (result.constraints) {
+    result.constraints = result.constraints.filter((c: ModuleConstraint) => c.targetModuleId)
+  }
+  emit('save', result)
+  emit('update:modelValue', false)
+}
+</script>
