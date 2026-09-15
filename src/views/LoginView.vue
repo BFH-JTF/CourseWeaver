@@ -7,10 +7,10 @@
           <v-card-text>
             <div v-if="!isConfigured" class="text-center mb-4">
               <v-alert type="warning" variant="tonal" class="mb-3">
-                DocPouch server is not configured yet.
+                OIDC identity provider is not configured yet.
               </v-alert>
               <v-btn color="primary" to="/settings">
-                Configure Server
+                Configure Settings
               </v-btn>
             </div>
 
@@ -27,13 +27,13 @@
                 @click="handleLogin"
               >
                 <v-icon start>mdi-login</v-icon>
-                Log in with DocPouch
+                Log in with OIDC ({{ providerName }})
               </v-btn>
 
               <div class="text-center mt-3">
                 <v-btn variant="text" size="small" to="/settings">
                   <v-icon start>mdi-cog</v-icon>
-                  Server Settings
+                  Server &amp; OIDC Settings
                 </v-btn>
               </div>
             </div>
@@ -46,19 +46,20 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useDocPouch } from '@/composables/useDocPouch'
+import { useOidc } from '@/composables/useOidc'
 
-const docPouch = useDocPouch()
+const oidc = useOidc()
 
-const isConfigured = computed(() => docPouch.isConfigured.value)
-const authError = computed(() => docPouch.authError.value)
+const isConfigured = computed(() => oidc.isConfigured.value)
+const authError = computed(() => oidc.authError.value)
+const providerName = computed(() => (oidc.providerType.value === 'docpouch' ? 'docPouch' : 'EduID / OIDC'))
 const isLoggingIn = ref(false)
 
 async function handleLogin() {
-  docPouch.clearAuthError()
+  oidc.clearAuthError()
   isLoggingIn.value = true
   try {
-    await docPouch.loginWithOidc()
+    await oidc.loginWithOidc()
   } catch {
     // If OIDC redirect fails, the error is stored in authError
   } finally {

@@ -4,9 +4,9 @@
 - Webtool via server-based DB
 - Stack:
     - NodeJS
-    - [docPouch](https://github.com/BFH-JTF/doc-pouch)
+    - PostgreSQL (with JSONB document storage)
     - Vuetify
-- User auth via docPouch possibly later via EduID
+- User auth via OIDC (e.g. EduID, docPouch, Keycloak)
 
 ## Purpose
 ### Role Definition

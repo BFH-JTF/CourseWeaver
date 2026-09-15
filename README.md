@@ -21,7 +21,7 @@
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [1. Clone and Install Dependencies](#1-clone-and-install-dependencies)
-  - [2. Start the Backend Services (DocPouch)](#2-start-the-backend-services-docpouch)
+  - [2. Start the Backend Services (PostgreSQL & OIDC)](#2-start-the-backend-services-postgresql--oidc)
   - [3. Start the Frontend Development Server](#3-start-the-frontend-development-server)
   - [4. Initial In-App Configuration & Login](#4-initial-in-app-configuration--login)
 - [Available Scripts](#available-scripts)
@@ -90,9 +90,9 @@ CourseWeaver provides an integrated solution tailored to university workflows:
 - **Accreditation Exports**: Generate reports and exports suitable for academic accreditation (e.g., AACSB, EQUIS) and internal institutional quality reviews.
 
 ### Authentication & Access Control
-- Integration with **[DocPouch](https://github.com/BFH-JTF/doc-pouch)** for document storage and real-time updates.
-- OpenID Connect (OIDC) / EduID authentication flow.
-- Role-based permissions (Administrator vs. standard user) for controlling taxonomy editing, schedule publication, and system administration.
+- **OIDC Authentication**: OpenID Connect (OIDC) / EduID authentication flow supporting any compliant identity provider (docPouch, EduID, Keycloak, etc.).
+- **PostgreSQL Persistence**: Data persistence layer built on PostgreSQL using JSONB document storage for flexible semi-structured academic entities.
+- **Role-Based Access Control**: Permissions (Administrator vs. standard user) for controlling taxonomy editing, schedule publication, and system administration.
 
 ---
 
@@ -104,7 +104,8 @@ CourseWeaver provides an integrated solution tailored to university workflows:
 - **State Management**: [Pinia](https://pinia.vuejs.org/)
 - **Routing**: [Vue Router 4](https://router.vuejs.org/)
 - **Build Tool**: [Vite 8](https://vite.dev/)
-- **Backend / Database / Auth**: [DocPouch](https://github.com/BFH-JTF/doc-pouch) via [`docpouch-client`](https://www.npmjs.com/package/docpouch-client) (OIDC / JWT & Real-time WebSockets)
+- **Database & Persistence**: [PostgreSQL 16](https://www.postgresql.org/) with JSONB document storage
+- **Authentication**: OpenID Connect (OIDC) / EduID (with docPouch as a supported identity provider)
 - **Containerization**: [Docker](https://www.docker.com/) & Docker Compose
 
 ---
@@ -113,7 +114,7 @@ CourseWeaver provides an integrated solution tailored to university workflows:
 
 ```text
 CourseWeaver/
-├── docker-compose.yml          # Local DocPouch service configuration
+├── docker-compose.yml          # Local PostgreSQL & optional OIDC service configuration
 ├── docs/                       # Specifications and data structure documentation
 │   ├── datastructure.curriculum.md  # Core academic entity definitions (Program, Degree, Module)
 │   ├── datastructure.locations.md   # Location JSON & CSV specifications
@@ -122,15 +123,17 @@ CourseWeaver/
 ├── index.html                  # HTML entry point
 ├── package.json                # Project dependencies and scripts
 ├── src/
-│   ├── App.vue                 # Root component
+│   ├── App.vue                 # Root component with OIDC lifecycle handler
 │   ├── main.ts                 # Application bootstrapping
 │   ├── components/             # Reusable UI dialogs and components
 │   │   ├── LocationFormDialog.vue   # Location add/edit dialog
 │   │   └── RoomFormDialog.vue       # Room details add/edit dialog
 │   ├── composables/            # Shared business logic and API integrations
-│   │   ├── useDocPouch.ts           # DocPouch client, OIDC auth & server settings
-│   │   ├── useLocations.ts          # Location management and CSV parser
-│   │   └── useRooms.ts              # Room management and CSV parser
+│   │   ├── useDocPouch.ts           # docPouch OIDC compatibility adapter
+│   │   ├── useLocations.ts          # Location management via PostgreSQL JSONB
+│   │   ├── useOidc.ts               # OpenID Connect authentication & provider management
+│   │   ├── usePostgres.ts           # PostgreSQL JSONB data client & settings
+│   │   └── useRooms.ts              # Room management via PostgreSQL JSONB
 │   ├── layouts/
 │   │   └── AppLayout.vue            # Navigation drawer, app bar, and main layout
 │   ├── plugins/
@@ -149,12 +152,12 @@ CourseWeaver/
 │       ├── ConflictsView.vue        # Conflict detection and resolution view
 │       ├── CurriculumView.vue       # Curriculum versions & study programs
 │       ├── DashboardView.vue        # Central dashboard overview
-│       ├── LoginView.vue            # DocPouch login view
+│       ├── LoginView.vue            # OIDC login view
 │       ├── ModulesView.vue          # Module list and constraint view
 │       ├── ReportsView.vue          # Curriculum reporting and export view
 │       ├── RoomsView.vue            # Rooms and locations management view
 │       ├── ScheduleView.vue         # Semester schedule and lecturer assignments
-│       ├── SettingsView.vue         # Server connection and OIDC token settings
+│       ├── SettingsView.vue         # PostgreSQL connection and OIDC provider settings
 │       └── TaxonomyView.vue         # Competencies, learning objectives & proofs of knowledge
 ├── tsconfig.json               # TypeScript compiler options
 └── vite.config.ts              # Vite configuration with Vuetify plugin
@@ -169,7 +172,7 @@ CourseWeaver/
 Ensure you have the following installed on your machine:
 - **Node.js**: v18.0.0 or later (v20+ recommended)
 - **npm**: v9.0.0 or later
-- **Docker** and **Docker Compose** (to run the local DocPouch backend)
+- **Docker** and **Docker Compose** (to run the PostgreSQL and OIDC backend services)
 
 ---
 
@@ -183,18 +186,17 @@ npm install
 
 ---
 
-### 2. Start the Backend Services (DocPouch)
+### 2. Start the Backend Services (PostgreSQL & OIDC)
 
-CourseWeaver uses DocPouch for authentication and persistent document storage. A preconfigured `docker-compose.yml` is provided for local development:
+CourseWeaver uses PostgreSQL for document storage and OIDC for user authentication. A preconfigured `docker-compose.yml` is provided for local development:
 
 ```bash
 docker compose up -d
 ```
 
-This starts DocPouch on `http://localhost:3030` with:
-- Persistent database storage in `./docpouch-db`
-- Application logs in `./docpouch-log`
-- Default OIDC registration token: `TestToken`
+This starts:
+- **PostgreSQL 16**: Port `5432`, database `courseweaver`, with persistent volume in `./postgres-data`
+- **Optional OIDC Provider (docPouch)**: Port `3030` on `http://localhost:3030/oidc`
 
 ---
 
@@ -213,13 +215,15 @@ http://localhost:5173
 
 ### 4. Initial In-App Configuration & Login
 
-1. When opening the app for the first time, you will be redirected to the **Server Settings** screen (`/settings`).
-2. Fill in the connection settings for your local DocPouch server:
-   - **DocPouch URL**: `http://localhost:3030` (or leave port blank if included in URL)
-   - **Port**: `3030` (or `0` if included in the URL)
-   - **OIDC Registration Token**: `TestToken`
-3. Click **Save & Register** to register the frontend client with DocPouch.
-4. Navigate to the **Login** screen (`/login`) and click **Log in with DocPouch** to authenticate via OIDC.
+1. When opening the app for the first time, you will be redirected to the **Server & OIDC Settings** screen (`/settings`).
+2. Fill in the connection settings for your OIDC identity provider and PostgreSQL backend:
+   - **OIDC Provider**: Select `docPouch` or `EduID / Generic OpenID Connect`
+   - **OIDC Issuer URL**: `http://localhost:3030/oidc` (or your EduID/Keycloak issuer endpoint)
+   - **OIDC Registration Token**: `TestToken` (when using docPouch OIDC)
+   - **PostgreSQL Backend API URL**: `http://localhost:3000/api`
+   - **Database Name**: `courseweaver`
+3. Click **Save Settings** to persist the configuration.
+4. Navigate to the **Login** screen (`/login`) and click **Log in with OIDC** to authenticate.
 
 ---
 
@@ -243,21 +247,21 @@ For in-depth domain models, schemas, and export formats, refer to the documents 
 - **[`docs/datastructure.locations.md`](./docs/datastructure.locations.md)**: JSON structure and CSV header format for Location entities.
 - **[`docs/datastructure.rooms.md`](./docs/datastructure.rooms.md)**: JSON specification and CSV column definitions for classrooms, layout configurations, AV equipment, connectivity, and accessibility features.
 
-### DocPouch Document Types
+### PostgreSQL JSONB Entity Tables
 
-Entities in CourseWeaver are categorized by DocPouch document types (`type` and `subType`):
+Academic records and institutional resources are stored in PostgreSQL tables with JSONB document payloads:
 
-| Entity | Type | SubType | Description |
+| Entity | Table Name | Storage Format | Description |
 |---|---|---|---|
-| `CURRICULUM_VERSION` | `100` | `1` | Curriculum versions and parent forks |
-| `STUDY_PROGRAM` | `100` | `2` | Academic study programs |
-| `MODULE` | `100` | `3` | Modules and relationship constraints |
-| `SEMESTER` | `100` | `4` | Semesters, dates, and holidays |
-| `LESSON` | `100` | `5` | Lessons, taxonomy links, and scheduled sessions |
-| `ROOM` | `101` | `1` | Classrooms, capacity, layout, equipment |
-| `LECTURER` | `101` | `2` | Faculty profiles and availability slots |
-| `LOCATION` | `101` | `3` | Campuses, buildings, addresses, geo-coordinates |
-| `TAXONOMY` | `102` | `1` | Competencies, learning objectives, proofs of knowledge |
+| `CURRICULUM_VERSION` | `curriculum_versions` | JSONB | Curriculum versions and parent forks |
+| `STUDY_PROGRAM` | `study_programs` | JSONB | Academic study programs |
+| `MODULE` | `modules` | JSONB | Modules and relationship constraints |
+| `SEMESTER` | `semesters` | JSONB | Semesters, dates, and holidays |
+| `LESSON` | `lessons` | JSONB | Lessons, taxonomy links, and scheduled sessions |
+| `ROOM` | `rooms` | JSONB | Classrooms, capacity, layout, equipment |
+| `LECTURER` | `lecturers` | JSONB | Faculty profiles and availability slots |
+| `LOCATION` | `locations` | JSONB | Campuses, buildings, addresses, geo-coordinates |
+| `TAXONOMY` | `taxonomy_items` | JSONB | Competencies, learning objectives, proofs of knowledge |
 
 ---
 

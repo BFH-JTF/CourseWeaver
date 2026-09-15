@@ -1,5 +1,6 @@
 export interface Location {
   _id?: string
+  id?: string
   name: string
   campus?: string
   building: string

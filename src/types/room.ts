@@ -120,6 +120,7 @@ export interface RoomMaintenance {
 
 export interface Room {
   _id?: string
+  id?: string
   name: string
   room_type: RoomType
   owner?: string

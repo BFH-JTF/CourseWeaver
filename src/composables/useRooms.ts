@@ -1,8 +1,6 @@
 import { ref } from 'vue'
-import { useDocPouch } from '@/composables/useDocPouch'
+import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
-
-const DOC_TYPE = { type: 101, subType: 1 }
 
 function emptyRoom(): Room {
   return {
@@ -114,21 +112,16 @@ function csvToRoom(obj: Record<string, string>): Room {
 }
 
 export function useRooms() {
-  const { client } = useDocPouch()
+  const { fetchEntities, createEntity, updateEntity: updateDbEntity, removeEntity: removeDbEntity } = usePostgres()
   const rooms = ref<Room[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   async function fetchRooms() {
-    if (!client.value) return
     loading.value = true
     error.value = null
     try {
-      const docs = await client.value.fetchDocuments(DOC_TYPE as any)
-      rooms.value = docs.map(d => d.content?.structuredData ?? d.content ?? d) as Room[]
-      rooms.value.forEach((r, i) => {
-        if (docs[i]?._id) r._id = docs[i]._id
-      })
+      rooms.value = await fetchEntities<Room>(EntityTables.ROOM)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -137,21 +130,12 @@ export function useRooms() {
   }
 
   async function addRoom(room: Room) {
-    if (!client.value) return
     error.value = null
     try {
-      const doc = await client.value.createDocument({
-        title: room.name,
-        type: DOC_TYPE.type,
-        subType: DOC_TYPE.subType,
-        content: { structuredData: room },
-        shareWithGroup: true,
-        shareWithDepartment: true,
-        public: false,
-        owner: '',
-      } as any)
-      room._id = doc._id
-      rooms.value.push(room)
+      const saved = await createEntity<Room>(EntityTables.ROOM, room)
+      room._id = saved._id || saved.id
+      room.id = saved.id || saved._id
+      rooms.value = await fetchEntities<Room>(EntityTables.ROOM)
     } catch (e: any) {
       error.value = e.message
       throw e
@@ -159,16 +143,12 @@ export function useRooms() {
   }
 
   async function updateRoom(room: Room) {
-    if (!client.value || !room._id) return
+    const id = room._id || room.id
+    if (!id) return
     error.value = null
     try {
-      await client.value.updateDocument(room._id, {
-        title: room.name,
-        type: DOC_TYPE.type,
-        subType: DOC_TYPE.subType,
-        content: { structuredData: room },
-      } as any)
-      const idx = rooms.value.findIndex(r => r._id === room._id)
+      await updateDbEntity(EntityTables.ROOM, id, room)
+      const idx = rooms.value.findIndex(r => (r._id === id || r.id === id))
       if (idx !== -1) rooms.value[idx] = room
     } catch (e: any) {
       error.value = e.message
@@ -177,11 +157,10 @@ export function useRooms() {
   }
 
   async function removeRoom(id: string) {
-    if (!client.value) return
     error.value = null
     try {
-      await client.value.removeDocument(id)
-      rooms.value = rooms.value.filter(r => r._id !== id)
+      await removeDbEntity(EntityTables.ROOM, id)
+      rooms.value = rooms.value.filter(r => r._id !== id && r.id !== id)
     } catch (e: any) {
       error.value = e.message
       throw e

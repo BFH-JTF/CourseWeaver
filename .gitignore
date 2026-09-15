@@ -4,5 +4,6 @@ dist
 .env.*.local
 docpouch-db
 docpouch-log
+postgres-data
 .idea
 *.iml

@@ -4,6 +4,7 @@ import vuetify from 'vite-plugin-vuetify'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  envPrefix: ['VITE_', 'APP_', 'DATABASE_', 'POSTGRES_', 'OIDC_'],
   plugins: [
     vue(),
     vuetify({ autoImport: true }),

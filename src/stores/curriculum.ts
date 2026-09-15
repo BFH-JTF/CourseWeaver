@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { useDocPouch } from '@/composables/useDocPouch'
+import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
 
 export interface CurriculumVersion {
   _id?: string
+  id?: string
   name: string
   description?: string
   version: number
@@ -15,6 +16,7 @@ export interface CurriculumVersion {
 
 export interface StudyProgram {
   _id?: string
+  id?: string
   name: string
   description?: string
   degreeType?: string
@@ -24,6 +26,7 @@ export interface StudyProgram {
 
 export interface Module {
   _id?: string
+  id?: string
   name: string
   description?: string
   code?: string
@@ -43,6 +46,7 @@ export interface ModuleConstraint {
 
 export interface Semester {
   _id?: string
+  id?: string
   identifier: string
   startDate: string
   endDate: string
@@ -58,6 +62,7 @@ export interface DateRange {
 
 export interface Lesson {
   _id?: string
+  id?: string
   moduleId: string
   name: string
   description?: string
@@ -74,9 +79,9 @@ export interface ScheduledSession {
   roomId?: string
 }
 
-
 export interface Lecturer {
   _id?: string
+  id?: string
   name: string
   email?: string
   department?: string
@@ -91,28 +96,20 @@ export interface AvailabilitySlot {
 
 export interface TaxonomyItem {
   _id?: string
+  id?: string
   name: string
   description?: string
   category: 'competency' | 'learningObjective' | 'proofOfKnowledge'
   parentTaxonomyItemId?: string
 }
 
-const DocType = {
-  CURRICULUM_VERSION: { type: 100, subType: 1 },
-  STUDY_PROGRAM: { type: 100, subType: 2 },
-  MODULE: { type: 100, subType: 3 },
-  SEMESTER: { type: 100, subType: 4 },
-  LESSON: { type: 100, subType: 5 },
-  ROOM: { type: 101, subType: 1 },
-  LOCATION: { type: 101, subType: 3 },
-  LECTURER: { type: 101, subType: 2 },
-  TAXONOMY: { type: 102, subType: 1 },
-} as const
+// Entity mapping for Postgres JSONB backend
+const DocType = EntityTables
 
 export { DocType }
 
 export const useCurriculumStore = defineStore('curriculum', () => {
-  const { client } = useDocPouch()
+  const { fetchEntities } = usePostgres()
 
   const curriculumVersions = ref<CurriculumVersion[]>([])
   const studyPrograms = ref<StudyProgram[]>([])
@@ -126,17 +123,11 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchDocuments<T>(docType: { type: number; subType: number }): Promise<T[]> {
-    if (!client.value) return []
-    const docs = await client.value.fetchDocuments({ type: docType.type, subType: docType.subType } as any)
-    return docs.map(d => d.content?.structuredData ?? d.content ?? d) as T[]
-  }
-
   async function fetchCurriculumVersions() {
     loading.value = true
     error.value = null
     try {
-      curriculumVersions.value = await fetchDocuments<CurriculumVersion>(DocType.CURRICULUM_VERSION)
+      curriculumVersions.value = await fetchEntities<CurriculumVersion>(EntityTables.CURRICULUM_VERSION)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -148,7 +139,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      studyPrograms.value = await fetchDocuments<StudyProgram>(DocType.STUDY_PROGRAM)
+      studyPrograms.value = await fetchEntities<StudyProgram>(EntityTables.STUDY_PROGRAM)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -160,7 +151,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      modules.value = await fetchDocuments<Module>(DocType.MODULE)
+      modules.value = await fetchEntities<Module>(EntityTables.MODULE)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -172,7 +163,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      semesters.value = await fetchDocuments<Semester>(DocType.SEMESTER)
+      semesters.value = await fetchEntities<Semester>(EntityTables.SEMESTER)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -184,7 +175,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      lessons.value = await fetchDocuments<Lesson>(DocType.LESSON)
+      lessons.value = await fetchEntities<Lesson>(EntityTables.LESSON)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -196,7 +187,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      rooms.value = await fetchDocuments<Room>(DocType.ROOM)
+      rooms.value = await fetchEntities<Room>(EntityTables.ROOM)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -208,7 +199,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      locations.value = await fetchDocuments<Location>(DocType.LOCATION)
+      locations.value = await fetchEntities<Location>(EntityTables.LOCATION)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -220,7 +211,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      lecturers.value = await fetchDocuments<Lecturer>(DocType.LECTURER)
+      lecturers.value = await fetchEntities<Lecturer>(EntityTables.LECTURER)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -232,7 +223,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     loading.value = true
     error.value = null
     try {
-      taxonomyItems.value = await fetchDocuments<TaxonomyItem>(DocType.TAXONOMY)
+      taxonomyItems.value = await fetchEntities<TaxonomyItem>(EntityTables.TAXONOMY)
     } catch (e: any) {
       error.value = e.message
     } finally {

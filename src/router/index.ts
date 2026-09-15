@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useDocPouch } from '@/composables/useDocPouch'
+import { useOidc } from '@/composables/useOidc'
 import { useAuthStore } from '@/stores/auth'
 
 const AppLayout = () => import('@/layouts/AppLayout.vue')
@@ -82,10 +82,10 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const docPouch = useDocPouch()
+  const oidc = useOidc()
   const auth = useAuthStore()
 
-  if (to.meta.requiresConfig !== false && !docPouch.isConfigured) {
+  if (to.meta.requiresConfig !== false && !oidc.isConfigured.value) {
     return { name: 'settings' }
   }
 

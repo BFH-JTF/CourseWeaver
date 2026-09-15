@@ -1,8 +1,6 @@
 import { ref } from 'vue'
-import { useDocPouch } from '@/composables/useDocPouch'
+import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Location } from '@/types/location'
-
-const DOC_TYPE = { type: 101, subType: 3 }
 
 function emptyLocation(): Location {
   return {
@@ -32,21 +30,16 @@ function csvToLocation(obj: Record<string, string>): Location {
 }
 
 export function useLocations() {
-  const { client } = useDocPouch()
+  const { fetchEntities, createEntity, updateEntity: updateDbEntity, removeEntity: removeDbEntity } = usePostgres()
   const locations = ref<Location[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   async function fetchLocations() {
-    if (!client.value) return
     loading.value = true
     error.value = null
     try {
-      const docs = await client.value.fetchDocuments(DOC_TYPE as any)
-      locations.value = docs.map(d => d.content?.structuredData ?? d.content ?? d) as Location[]
-      locations.value.forEach((l, i) => {
-        if (docs[i]?._id) l._id = docs[i]._id
-      })
+      locations.value = await fetchEntities<Location>(EntityTables.LOCATION)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -55,21 +48,12 @@ export function useLocations() {
   }
 
   async function addLocation(location: Location) {
-    if (!client.value) return
     error.value = null
     try {
-      const doc = await client.value.createDocument({
-        title: location.name,
-        type: DOC_TYPE.type,
-        subType: DOC_TYPE.subType,
-        content: { structuredData: location },
-        shareWithGroup: true,
-        shareWithDepartment: true,
-        public: false,
-        owner: '',
-      } as any)
-      location._id = doc._id
-      locations.value.push(location)
+      const saved = await createEntity<Location>(EntityTables.LOCATION, location)
+      location._id = saved._id || saved.id
+      location.id = saved.id || saved._id
+      locations.value = await fetchEntities<Location>(EntityTables.LOCATION)
     } catch (e: any) {
       error.value = e.message
       throw e
@@ -77,16 +61,12 @@ export function useLocations() {
   }
 
   async function updateLocation(location: Location) {
-    if (!client.value || !location._id) return
+    const id = location._id || location.id
+    if (!id) return
     error.value = null
     try {
-      await client.value.updateDocument(location._id, {
-        title: location.name,
-        type: DOC_TYPE.type,
-        subType: DOC_TYPE.subType,
-        content: { structuredData: location },
-      } as any)
-      const idx = locations.value.findIndex(l => l._id === location._id)
+      await updateDbEntity(EntityTables.LOCATION, id, location)
+      const idx = locations.value.findIndex(l => (l._id === id || l.id === id))
       if (idx !== -1) locations.value[idx] = location
     } catch (e: any) {
       error.value = e.message
@@ -95,11 +75,10 @@ export function useLocations() {
   }
 
   async function removeLocation(id: string) {
-    if (!client.value) return
     error.value = null
     try {
-      await client.value.removeDocument(id)
-      locations.value = locations.value.filter(l => l._id !== id)
+      await removeDbEntity(EntityTables.LOCATION, id)
+      locations.value = locations.value.filter(l => l._id !== id && l.id !== id)
     } catch (e: any) {
       error.value = e.message
       throw e
