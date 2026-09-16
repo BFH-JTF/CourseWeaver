@@ -73,7 +73,7 @@ const navItems = computed(() => {
     { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/' },
     { title: 'Curriculum', icon: 'mdi-book-education', to: '/curriculum' },
     { title: 'Taxonomy', icon: 'mdi-sitemap', to: '/taxonomy' },
-    { title: 'Modules', icon: 'mdi-view-module', to: '/modules' },
+
     { title: 'Schedule', icon: 'mdi-calendar-clock', to: '/schedule' },
     { title: 'Rooms & Locations', icon: 'mdi-door-open', to: '/rooms' },
     { title: 'Conflicts', icon: 'mdi-alert-circle', to: '/conflicts' },

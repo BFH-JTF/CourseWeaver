@@ -202,7 +202,6 @@ CourseWeaver/
 │       ├── CurriculumView.vue             # Departments, Programs, Degrees, Modules management
 │       ├── DashboardView.vue              # Central dashboard overview
 │       ├── LoginView.vue                  # OIDC login view
-│       ├── ModulesView.vue               # Module list (legacy, CSV import)
 │       ├── ReportsView.vue               # Curriculum reporting and export view
 │       ├── RoomsView.vue                 # Rooms and locations management view
 │       ├── ScheduleView.vue              # Semester schedule and lecturer assignments

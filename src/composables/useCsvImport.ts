@@ -17,6 +17,8 @@ export function useCsvImport() {
     departments: EntityTables.DEPARTMENT,
     programs: EntityTables.PROGRAM,
     degrees: EntityTables.DEGREE,
+    availability: EntityTables.LECTURER_AVAILABILITY,
+    scheduling_rules: EntityTables.SCHEDULING_RULE,
   }
 
   async function saveImportedData(type: ImportType, items: any[]): Promise<number> {

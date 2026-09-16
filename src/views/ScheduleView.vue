@@ -1,257 +1,454 @@
 <template>
   <v-container>
-    <h1>Schedule Creation</h1>
-    <p class="text-body-1 mt-2 mb-4">
-      Create and manage semester schedules. Define time frames, assign lecturers and rooms to sessions.
+    <h1 class="mb-1">Schedule</h1>
+    <p class="text-body-2 text-medium-emphasis mb-4">
+      Define your availability and configure scheduling rules for the selected semester.
     </p>
-    <v-alert type="info" variant="tonal" class="mb-4">
-      Scheduling features are coming soon. This view will allow you to create timetables, set module constraints
-      (block weeks, weekly/biweekly), and manage semester dates.
-    </v-alert>
 
-    <v-card class="mb-6">
-      <v-card-title>CP-SAT Stundenplan – Browser (or-tools-wasm)</v-card-title>
-      <v-card-text>
-        <p class="text-body-2 mb-3">
-          Legacy: direkter WASM im Browser (COOP/COEP). Dient nur noch als Vergleich; produktiv läuft Solver
-          <strong>serverseitig in Node.js</strong> hinter Interface (siehe neuer Card unten).
-        </p>
-        <div class="d-flex flex-wrap ga-2 mb-4">
-          <v-btn color="primary" :loading="solvingSimple" @click="runSimpleDemo">Simple Demo (desks/tables)</v-btn>
-          <v-btn color="secondary" :loading="solvingTimetable" @click="runTimetableDemo">Browser Demo (6 Blöcke)</v-btn>
-        </div>
-        <v-alert v-if="simpleResult" type="success" variant="tonal" class="mb-3">
-          Simple: {{ simpleResult.status }} — desks={{ simpleResult.desks }}, tables={{ simpleResult.tables }}, profit={{ simpleResult.profit }}
-        </v-alert>
-        <v-alert v-if="timetableResult" :type="timetableResult.status === 'OPTIMAL' || timetableResult.status === 'FEASIBLE' ? 'success' : 'error'" variant="tonal" class="mb-3">
-          Browser: {{ timetableResult.status }} ({{ timetableResult.solveTimeMs }} ms, Obj {{ timetableResult.objectiveValue }})
-        </v-alert>
-        <v-table v-if="timetableResult?.assignments?.length" density="compact">
-          <thead><tr><th>Block</th><th>Slot (Datum/Periode)</th><th>Raum</th></tr></thead>
-          <tbody>
-            <tr v-for="a in timetableResult.assignments" :key="a.blockId">
-              <td>{{ a.blockId }}</td><td>{{ a.slot.date }} {{ a.slot.weekday }} {{ a.slot.period }}</td><td>{{ roomName(a.roomId) }}</td>
-            </tr>
-          </tbody>
-        </v-table>
-        <v-alert v-if="error" type="error" variant="tonal">{{ error }}</v-alert>
-      </v-card-text>
-    </v-card>
-
-    <v-card class="mb-6">
-      <v-card-title>CP-SAT Stundenplan – Server (Node.js, Worker-isoliert)</v-card-title>
-      <v-card-text>
-        <p class="text-body-2 mb-3">
-          Neue Architektur: <code>Domäne → buildSolverInput → OrToolsWasmTimetableSolver</code> (Stufen 1–4) via
-          <code>POST /api/timetable/solve</code>. Solver läuft im Worker Thread, nicht im Request-Handler.
-          Erklärungen via <code>explainSolution</code> je Constraint-ID.
-        </p>
-        <div class="d-flex flex-wrap ga-2 mb-4">
-          <v-btn color="primary" :loading="solvingServer" @click="runServerDemo">Server Demo (6 Module, 4 Räume)</v-btn>
-          <v-btn variant="outlined" :loading="solvingServer" @click="runServerDemoWithSoft">mit Soft-Penalties</v-btn>
-        </div>
-        <v-alert v-if="serverResult" :type="serverResult.status === 'OPTIMAL' || serverResult.status === 'FEASIBLE' ? 'success' : 'error'" variant="tonal" class="mb-3">
-          Server: {{ serverResult.status }} (Solver {{ serverResult.solveTimeMs }} ms, Obj {{ serverResult.objectiveValue }})
-        </v-alert>
-        <v-table v-if="serverResult?.schedule?.length" density="compact">
-          <thead><tr><th>Modul</th><th>Tag</th><th>Raum</th><th>Slots</th></tr></thead>
-          <tbody>
-            <tr v-for="s in serverResult.schedule" :key="s.sessionId">
-              <td>{{ s.moduleName }} ({{ s.moduleId }})</td>
-              <td>{{ s.day.date }} {{ s.day.weekday }}</td>
-              <td>{{ s.room.name }} (Cap {{ s.room.capacity }})</td>
-              <td>{{ s.slotTypes.join('+') }}</td>
-            </tr>
-          </tbody>
-        </v-table>
-        <v-list v-if="serverResult?.explanations?.length" density="compact" class="mt-3">
-          <v-list-subheader>Erklärungen (Constraint-Katalog)</v-list-subheader>
-          <v-list-item v-for="e in serverResult.explanations" :key="e.constraintId" :title="e.constraintId" :subtitle="`${e.category} · ${e.satisfied ? 'erfüllt' : 'verletzt'} · cost ${e.cost} ${e.message ?? ''}`" />
-        </v-list>
-        <v-alert v-if="serverError" type="error" variant="tonal" class="mt-3">{{ serverError }}</v-alert>
-      </v-card-text>
-    </v-card>
-    <v-row>
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>Semesters</v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item v-for="s in semesters" :key="s._id" :title="s.identifier" :subtitle="`${s.startDate} – ${s.endDate}`" />
-              <v-list-item v-if="semesters.length === 0" title="No semesters defined yet" />
-            </v-list>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title>Lecturers</v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item v-for="l in lecturers" :key="l._id" :title="l.name" :subtitle="l.department" />
-              <v-list-item v-if="lecturers.length === 0" title="No lecturers defined yet" />
-            </v-list>
-          </v-card-text>
-        </v-card>
+    <v-row dense class="mb-4">
+      <v-col cols="12" sm="6" md="4">
+        <v-select
+          v-model="selectedSemesterId"
+          :items="semesterItems"
+          item-title="title"
+          item-value="value"
+          label="Semester"
+          prepend-inner-icon="mdi-school-outline"
+          variant="outlined"
+          density="compact"
+          hide-details
+          @update:model-value="handleSemesterChange"
+        >
+          <template #item="{ props: itemProps, item }">
+            <v-list-item v-bind="itemProps">
+              <v-list-item-subtitle>{{ (item as any).raw?.subtitle }}</v-list-item-subtitle>
+            </v-list-item>
+          </template>
+        </v-select>
       </v-col>
     </v-row>
+
+    <v-tabs v-model="activeTab">
+      <v-tab value="availability">
+        <v-icon start>mdi-calendar-clock</v-icon>
+        Availability
+      </v-tab>
+      <v-tab value="rules">
+        <v-icon start>mdi-tune-vertical</v-icon>
+        Rules
+      </v-tab>
+    </v-tabs>
+
+    <v-window v-model="activeTab" class="mt-4">
+      <!-- Availability Tab -->
+      <v-window-item value="availability">
+        <v-alert v-if="!selectedSemesterId" type="info" variant="tonal" class="mb-4" density="compact">
+          Select a semester above to manage your availability.
+        </v-alert>
+
+        <template v-else>
+          <v-row class="align-center mb-4">
+            <v-col cols="12" sm="6" class="d-flex ga-2">
+              <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddAvailability">
+                Add Availability
+              </v-btn>
+              <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('availability')">
+                Import CSV
+              </v-btn>
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="availabilitySearch"
+                prepend-inner-icon="mdi-magnify"
+                label="Search availability"
+                single-line
+                hide-details
+                clearable
+                density="compact"
+              />
+            </v-col>
+          </v-row>
+
+          <v-data-table
+            :headers="availabilityHeaders"
+            :items="filteredAvailabilities"
+            :sort-by="availabilitySortBy"
+            @update:sort-by="availabilitySortBy = $event"
+            hover
+            items-per-page="15"
+          >
+            <template #item.recurringAvailability="{ item }">
+              <div class="d-flex flex-wrap ga-1">
+                <v-chip
+                  v-for="slot in (item.recurringAvailability || []).slice(0, 5)"
+                  :key="slot.id || slot.weekday + slot.startTime"
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                >
+                  {{ formatWeekday(slot.weekday) }} {{ slot.startTime }}–{{ slot.endTime }}
+                  <span v-if="slot.label" class="text-caption ms-1">({{ slot.label }})</span>
+                </v-chip>
+                <v-chip
+                  v-if="(item.recurringAvailability || []).length > 5"
+                  size="small"
+                  variant="tonal"
+                  color="default"
+                >
+                  +{{ item.recurringAvailability.length - 5 }} more
+                </v-chip>
+                <span v-if="!item.recurringAvailability?.length" class="text-medium-emphasis text-caption">No slots defined</span>
+              </div>
+            </template>
+            <template #item.actions="{ item }">
+              <v-btn icon variant="text" size="small" @click="openEditAvailability(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteAvailability(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <template #no-data>
+              <div class="text-center pa-4">
+                <v-icon size="64" color="grey-lighten-1">mdi-calendar-clock</v-icon>
+                <p class="mt-2 text-medium-emphasis">No availability entries for this semester.</p>
+                <p class="text-caption text-medium-emphasis">Add your weekly availability for teaching.</p>
+              </div>
+            </template>
+          </v-data-table>
+        </template>
+      </v-window-item>
+
+      <!-- Rules Tab -->
+      <v-window-item value="rules">
+        <v-alert v-if="!selectedSemesterId" type="info" variant="tonal" class="mb-4" density="compact">
+          Select a semester above to manage scheduling rules.
+        </v-alert>
+
+        <template v-else>
+          <v-row class="align-center mb-4">
+            <v-col cols="12" sm="6" class="d-flex ga-2">
+              <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddRule">
+                Add Rule
+              </v-btn>
+              <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('scheduling_rules')">
+                Import CSV
+              </v-btn>
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="ruleSearch"
+                prepend-inner-icon="mdi-magnify"
+                label="Search rules"
+                single-line
+                hide-details
+                clearable
+                density="compact"
+              />
+            </v-col>
+          </v-row>
+
+          <v-data-table
+            :headers="ruleHeaders"
+            :items="filteredRules"
+            :sort-by="ruleSortBy"
+            @update:sort-by="ruleSortBy = $event"
+            hover
+            items-per-page="15"
+          >
+            <template #item.constraintId="{ item }">
+              <code class="text-body-2">{{ item.constraintId }}</code>
+            </template>
+            <template #item.category="{ item }">
+              <v-chip
+                size="small"
+                :color="item.category === 'hard' ? 'error' : 'warning'"
+                variant="tonal"
+              >
+                {{ item.category === 'hard' ? 'Hard' : 'Soft' }}
+              </v-chip>
+            </template>
+            <template #item.enabled="{ item }">
+              <v-icon :color="item.enabled ? 'success' : 'default'">
+                {{ item.enabled ? 'mdi-check-circle' : 'mdi-close-circle' }}
+              </v-icon>
+            </template>
+            <template #item.weight="{ item }">
+              <span v-if="item.category === 'soft'" class="font-weight-medium">{{ item.weight }}</span>
+              <span v-else class="text-medium-emphasis">—</span>
+            </template>
+            <template #item.appliesTo="{ item }">
+              <div v-if="item.appliesTo?.length" class="d-flex flex-wrap ga-1">
+                <v-chip
+                  v-for="target in item.appliesTo.slice(0, 3)"
+                  :key="target"
+                  size="x-small"
+                  variant="tonal"
+                >
+                  {{ target }}
+                </v-chip>
+                <v-chip v-if="item.appliesTo.length > 3" size="x-small" variant="tonal" color="default">
+                  +{{ item.appliesTo.length - 3 }}
+                </v-chip>
+              </div>
+              <span v-else class="text-medium-emphasis text-caption">All</span>
+            </template>
+            <template #item.actions="{ item }">
+              <v-btn v-if="auth.isAdmin" icon variant="text" size="small" @click="openEditRule(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn v-if="auth.isAdmin" icon variant="text" size="small" @click="confirmDeleteRule(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+              <span v-if="!auth.isAdmin" class="text-medium-emphasis text-caption">Read-only</span>
+            </template>
+            <template #no-data>
+              <div class="text-center pa-4">
+                <v-icon size="64" color="grey-lighten-1">mdi-tune-vertical</v-icon>
+                <p class="mt-2 text-medium-emphasis">No scheduling rules for this semester.</p>
+                <p class="text-caption text-medium-emphasis">Add rules to control how CP-SAT builds the timetable.</p>
+              </div>
+            </template>
+          </v-data-table>
+        </template>
+      </v-window-item>
+    </v-window>
+
+    <!-- Availability Form Dialog -->
+    <AvailabilityFormDialog
+      v-model="availabilityDialogOpen"
+      :availability-data="editingAvailability"
+      :current-user-id="currentUserId"
+      :current-semester-id="selectedSemesterId"
+      @save="handleSaveAvailability"
+    />
+
+    <!-- Scheduling Rule Form Dialog -->
+    <SchedulingRuleFormDialog
+      v-model="ruleDialogOpen"
+      :rule-data="editingRule"
+      :current-semester-id="selectedSemesterId"
+      @save="handleSaveRule"
+    />
+
+    <!-- Delete Confirmation Dialog -->
+    <v-dialog v-model="deleteDialogOpen" max-width="420">
+      <v-card>
+        <v-card-title class="text-h6">Confirm Deletion</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete <strong>{{ deleteTargetName }}</strong>?
+          This action cannot be undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="deleteDialogOpen = false">Cancel</v-btn>
+          <v-btn color="error" variant="flat" @click="executeDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- CSV Import Dialog -->
+    <CsvImportDialog
+      v-model="csvImportDialogOpen"
+      :initial-type="csvImportType"
+      :allowed-types="['availability', 'scheduling_rules']"
+      @imported="handleCsvImported"
+    />
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useCurriculumStore } from '@/stores/curriculum'
-import { solveSimpleDemo, solveTimetable } from '@/composables/useTimetableCpSat'
-import { solveTimetableOnServer } from '@/composables/useTimetableServer'
+import { useAuthStore } from '@/stores/auth'
+import { useAvailability } from '@/composables/useAvailability'
+import { useSchedulingRules } from '@/composables/useSchedulingRules'
+import type { LecturerAvailability, SchedulingRule, Weekday } from '@/types/schedule'
+import { WEEKDAY_LABELS } from '@/types/schedule'
+import AvailabilityFormDialog from '@/components/AvailabilityFormDialog.vue'
+import SchedulingRuleFormDialog from '@/components/SchedulingRuleFormDialog.vue'
+import CsvImportDialog from '@/components/CsvImportDialog.vue'
 
 const store = useCurriculumStore()
-const { semesters, lecturers, rooms } = storeToRefs(store)
+const auth = useAuthStore()
+const { semesters } = storeToRefs(store)
+const { availabilities, fetchAvailabilities, addAvailability, updateAvailability, removeAvailability } = useAvailability()
+const { rules, fetchRules, addRule, updateRule, removeRule } = useSchedulingRules()
 
-const solvingSimple = ref(false)
-const solvingTimetable = ref(false)
-const solvingServer = ref(false)
-const simpleResult = ref<any>(null)
-const timetableResult = ref<any>(null)
-const serverResult = ref<any>(null)
-const error = ref<string | null>(null)
-const serverError = ref<string | null>(null)
+const currentUserId = computed(() => auth.localUser?.id || auth.localUser?.oidc_subject || '')
 
-function roomName(id: string) {
-  return rooms.value.find((r: any) => r._id === id || r.id === id)?.name ?? id
+const selectedSemesterId = ref('')
+const activeTab = ref<'availability' | 'rules'>('availability')
+const availabilitySearch = ref('')
+const ruleSearch = ref('')
+const availabilitySortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'lecturerId', order: 'asc' }])
+const ruleSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'constraintId', order: 'asc' }])
+
+const semesterItems = computed(() => {
+  const items = semesters.value.map(s => ({
+    title: s.identifier,
+    value: s._id || s.id || '',
+    subtitle: `${s.startDate} – ${s.endDate}`,
+  }))
+  if (items.length === 0) {
+    return [{ title: 'No semesters defined', value: '', subtitle: 'Create a semester first' }]
+  }
+  return [{ title: 'Select a semester', value: '', subtitle: 'Choose which semester to manage' }, ...items]
+})
+
+const semesterAvailabilities = computed(() => {
+  if (!selectedSemesterId.value) return []
+  return availabilities.value.filter(a => a.semesterId === selectedSemesterId.value)
+})
+
+const semesterRules = computed(() => {
+  if (!selectedSemesterId.value) return []
+  return rules.value.filter(r => r.semesterId === selectedSemesterId.value)
+})
+
+const availabilityHeaders = [
+  { title: 'Weekly Availability', key: 'recurringAvailability', sortable: false },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end' as const },
+]
+
+const ruleHeaders = [
+  { title: 'Rule ID', key: 'constraintId', sortable: true },
+  { title: 'Category', key: 'category', sortable: true },
+  { title: 'Enabled', key: 'enabled', sortable: true },
+  { title: 'Weight', key: 'weight', sortable: true },
+  { title: 'Description', key: 'description', sortable: true },
+  { title: 'Applies To', key: 'appliesTo', sortable: false },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end' as const },
+]
+
+const filteredAvailabilities = computed(() => {
+  const q = availabilitySearch.value?.toLowerCase() || ''
+  if (!q) return semesterAvailabilities.value
+  return semesterAvailabilities.value.filter(a => {
+    const slots = (a.recurringAvailability || []).map(s => WEEKDAY_LABELS[s.weekday as Weekday]?.toLowerCase() || '').join(' ')
+    const labels = (a.recurringAvailability || []).map(s => (s.label || '').toLowerCase()).join(' ')
+    return slots.includes(q) || labels.includes(q)
+  })
+})
+
+const filteredRules = computed(() => {
+  const q = ruleSearch.value?.toLowerCase() || ''
+  if (!q) return semesterRules.value
+  return semesterRules.value.filter(r =>
+    r.constraintId.toLowerCase().includes(q) ||
+    (r.description || '').toLowerCase().includes(q) ||
+    r.category.includes(q) ||
+    (r.appliesTo || []).some(t => t.toLowerCase().includes(q))
+  )
+})
+
+function formatWeekday(wd: Weekday): string {
+  return WEEKDAY_LABELS[wd] || wd
 }
 
-async function runSimpleDemo() {
-  solvingSimple.value = true
-  error.value = null
-  try {
-    simpleResult.value = await solveSimpleDemo()
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    solvingSimple.value = false
+function handleSemesterChange() {
+  availabilitySearch.value = ''
+  ruleSearch.value = ''
+}
+
+// Availability dialog
+const availabilityDialogOpen = ref(false)
+const editingAvailability = ref<LecturerAvailability | null>(null)
+
+function openAddAvailability() {
+  editingAvailability.value = null
+  availabilityDialogOpen.value = true
+}
+
+function openEditAvailability(item: LecturerAvailability) {
+  editingAvailability.value = JSON.parse(JSON.stringify(item))
+  availabilityDialogOpen.value = true
+}
+
+async function handleSaveAvailability(avail: LecturerAvailability) {
+  if (avail._id || avail.id) {
+    await updateAvailability(avail)
+  } else {
+    await addAvailability(avail)
   }
 }
 
-async function runTimetableDemo() {
-  solvingTimetable.value = true
-  error.value = null
-  try {
-    // Demo-Daten: 6 Blöcke, 3 Räume, 6 Halb-Tage, 4 Dozenten
-    const demoSlots = [
-      { date: '2028-02-03', weekday: 'thursday' as const, period: 'morning' as const },
-      { date: '2028-02-03', weekday: 'thursday' as const, period: 'afternoon' as const },
-      { date: '2028-02-04', weekday: 'friday' as const, period: 'morning' as const },
-      { date: '2028-02-04', weekday: 'friday' as const, period: 'afternoon' as const },
-      { date: '2028-02-05', weekday: 'saturday' as const, period: 'morning' as const },
-      { date: '2028-02-05', weekday: 'saturday' as const, period: 'afternoon' as const },
-    ]
-    const demoRooms = (rooms.value.length ? rooms.value : [
-      { _id: 'room-001', name: 'Seminarraum 2.14', capacity: { seats: 30 } },
-      { _id: 'room-002', name: 'Hörsaal A', capacity: { seats: 80 } },
-      { _id: 'room-003', name: 'Computerlab', capacity: { seats: 24 } },
-    ] as any).slice(0, 3)
-    const demoBlocks = [
-      { _id: 'block-A', module_id: 'mod-001', instructor_ids: ['instr-001'], slots: [demoSlots[0]] },
-      { _id: 'block-B', module_id: 'mod-002', instructor_ids: ['instr-001'], slots: [demoSlots[0]] },
-      { _id: 'block-C', module_id: 'mod-003', instructor_ids: ['instr-002'], slots: [demoSlots[1]] },
-      { _id: 'block-D', module_id: 'mod-004', instructor_ids: ['instr-003'], slots: [demoSlots[2]] },
-      { _id: 'block-E', module_id: 'mod-005', instructor_ids: ['instr-004'], slots: [demoSlots[2]] },
-      { _id: 'block-F', module_id: 'mod-006', instructor_ids: ['instr-002'], slots: [demoSlots[3]] },
-    ] as any
-    const demoInstructors = [
-      { _id: 'instr-001', name: 'Anna Weber' },
-      { _id: 'instr-002', name: 'Heinz Meili' },
-      { _id: 'instr-003', name: 'Nikola Widmer' },
-      { _id: 'instr-004', name: 'Admir Erni' },
-    ] as any
-    const availability = [
-      { instructor_id: 'instr-001', unavailable_half_days: [{ date: '2028-02-04', weekday: 'friday', period: 'morning' }] },
-    ] as any
-    const mods = new Map([
-      ['mod-001', { _id: 'mod-001', title: 'Digital Marketing', expected_students: 25, scheduling_constraint: {} } as any],
-      ['mod-002', { _id: 'mod-002', title: 'Change Management', expected_students: 20, scheduling_constraint: { must_not_overlap_with_module_ids: ['mod-001'] } } as any],
-    ])
-    timetableResult.value = await solveTimetable(demoBlocks, demoRooms, demoSlots, demoInstructors, availability, mods)
-  } catch (e: any) {
-    error.value = e.message
-  } finally {
-    solvingTimetable.value = false
+// Rule dialog
+const ruleDialogOpen = ref(false)
+const editingRule = ref<SchedulingRule | null>(null)
+
+function openAddRule() {
+  editingRule.value = null
+  ruleDialogOpen.value = true
+}
+
+function openEditRule(item: SchedulingRule) {
+  editingRule.value = JSON.parse(JSON.stringify(item))
+  ruleDialogOpen.value = true
+}
+
+async function handleSaveRule(rule: SchedulingRule) {
+  if (rule._id || rule.id) {
+    await updateRule(rule)
+  } else {
+    await addRule(rule)
   }
 }
 
-async function runServerDemo() {
-  solvingServer.value = true
-  serverError.value = null
-  try {
-    const days = [
-      { id: '2028-02-03', date: '2028-02-03', week: 5, weekday: 'Donnerstag' as const, phase: 'main' as const },
-      { id: '2028-02-04', date: '2028-02-04', week: 5, weekday: 'Freitag' as const, phase: 'main' as const },
-      { id: '2028-02-05', date: '2028-02-05', week: 5, weekday: 'Samstag' as const, phase: 'main' as const },
-      { id: '2028-02-10', date: '2028-02-10', week: 6, weekday: 'Donnerstag' as const, phase: 'main' as const },
-      { id: '2028-02-11', date: '2028-02-11', week: 6, weekday: 'Freitag' as const, phase: 'main' as const },
-      { id: '2028-02-12', date: '2028-02-12', week: 6, weekday: 'Samstag' as const, phase: 'main' as const },
-    ]
-    const rooms = [
-      { id: 'room-001', name: 'Seminarraum 2.14', capacity: 30 },
-      { id: 'room-002', name: 'Hörsaal A', capacity: 80 },
-      { id: 'room-003', name: 'Computerlab', capacity: 24 },
-      { id: 'room-004', name: 'Seminarraum 3.01', capacity: 40 },
-    ]
-    const modules = [
-      { id: 'mod-001', name: 'Digital Marketing', program: 'prog-dba', ects: 6 as const, expectedStudents: 25, instructors: ['instr-001'], restrictions: [] },
-      { id: 'mod-002', name: 'Change Management', program: 'prog-dba', ects: 6 as const, expectedStudents: 20, instructors: ['instr-001'], restrictions: [] },
-      { id: 'mod-003', name: 'Cloud Business Models', program: 'prog-dba', ects: 3 as const, expectedStudents: 18, instructors: ['instr-002'], restrictions: [] },
-      { id: 'mod-004', name: 'Live Case Felber', program: 'prog-dba', ects: 6 as const, expectedStudents: 28, instructors: ['instr-003'], restrictions: [] },
-      { id: 'mod-005', name: 'Data-Driven', program: 'prog-dba', ects: 3 as const, expectedStudents: 22, instructors: ['instr-002'], restrictions: [] },
-      { id: 'mod-006', name: 'AI in Business', program: 'prog-dba', ects: 6 as const, expectedStudents: 30, instructors: ['instr-004'], restrictions: [] },
-    ]
-    serverResult.value = await solveTimetableOnServer(modules, days, rooms, { timeLimitSeconds: 10 })
-  } catch (e: any) {
-    serverError.value = e.message
-  } finally {
-    solvingServer.value = false
-  }
+// Delete dialog
+const deleteDialogOpen = ref(false)
+const deleteTargetName = ref('')
+type DeleteTarget = { type: 'availability'; id: string } | { type: 'rule'; id: string }
+let deleteTarget: DeleteTarget | null = null
+
+function confirmDeleteAvailability(item: LecturerAvailability) {
+  deleteTarget = { type: 'availability', id: item._id || item.id || '' }
+  deleteTargetName.value = 'this availability entry'
+  deleteDialogOpen.value = true
 }
 
-async function runServerDemoWithSoft() {
-  solvingServer.value = true
-  serverError.value = null
-  try {
-    const days = [
-      { id: '2028-02-03', date: '2028-02-03', week: 5, weekday: 'Donnerstag' as const, phase: 'main' as const },
-      { id: '2028-02-04', date: '2028-02-04', week: 5, weekday: 'Freitag' as const, phase: 'main' as const },
-      { id: '2028-02-05', date: '2028-02-05', week: 5, weekday: 'Samstag' as const, phase: 'main' as const },
-      { id: '2028-02-10', date: '2028-02-10', week: 6, weekday: 'Donnerstag' as const, phase: 'main' as const },
-      { id: '2028-02-11', date: '2028-02-11', week: 6, weekday: 'Freitag' as const, phase: 'main' as const },
-      { id: '2028-02-12', date: '2028-02-12', week: 6, weekday: 'Samstag' as const, phase: 'main' as const },
-    ]
-    const rooms = [
-      { id: 'room-001', name: 'Seminarraum 2.14', capacity: 30 },
-      { id: 'room-002', name: 'Hörsaal A', capacity: 80 },
-      { id: 'room-003', name: 'Computerlab', capacity: 24 },
-      { id: 'room-004', name: 'Seminarraum 3.01', capacity: 40 },
-    ]
-    const modules = [
-      { id: 'mod-001', name: 'Digital Marketing', program: 'prog-dba', ects: 6 as const, expectedStudents: 25, instructors: ['instr-001'], restrictions: [{ id: 'AVOID_SATURDAY', category: 'soft' as const, weight: 20 }] },
-      { id: 'mod-002', name: 'Change Management', program: 'prog-dba', ects: 6 as const, expectedStudents: 20, instructors: ['instr-002'], restrictions: [{ id: 'AVOID_FRIDAY_AFTERNOON', category: 'soft' as const, weight: 20 }] },
-      { id: 'mod-003', name: 'Cloud Business Models', program: 'prog-dba', ects: 3 as const, expectedStudents: 18, instructors: ['instr-003'], restrictions: [{ id: 'UNAVAILABLE_DATES', category: 'hard' as const, params: { dates: ['2028-02-04'] } }] },
-      { id: 'mod-004', name: 'Live Case Felber', program: 'prog-dba', ects: 6 as const, expectedStudents: 28, instructors: ['instr-004'], restrictions: [{ id: 'AVOID_SATURDAY', category: 'soft' as const, weight: 10 }] },
-      { id: 'mod-005', name: 'Data-Driven', program: 'prog-dba', ects: 3 as const, expectedStudents: 22, instructors: ['instr-002'], restrictions: [] },
-      { id: 'mod-006', name: 'AI in Business', program: 'prog-dba', ects: 6 as const, expectedStudents: 30, instructors: ['instr-004'], restrictions: [{ id: 'ALLOWED_WEEKDAYS', category: 'hard' as const, params: { weekdays: ['Donnerstag', 'Freitag'] } }] },
-    ]
-    serverResult.value = await solveTimetableOnServer(modules, days, rooms, { timeLimitSeconds: 10 })
-  } catch (e: any) {
-    serverError.value = e.message
-  } finally {
-    solvingServer.value = false
+function confirmDeleteRule(item: SchedulingRule) {
+  deleteTarget = { type: 'rule', id: item._id || item.id || '' }
+  deleteTargetName.value = item.constraintId
+  deleteDialogOpen.value = true
+}
+
+async function executeDelete() {
+  if (!deleteTarget) return
+  if (deleteTarget.type === 'availability') {
+    await removeAvailability(deleteTarget.id)
+  } else {
+    await removeRule(deleteTarget.id)
+  }
+  deleteTarget = null
+  deleteDialogOpen.value = false
+}
+
+// CSV Import
+const csvImportDialogOpen = ref(false)
+const csvImportType = ref<'availability' | 'scheduling_rules'>('availability')
+
+function openCsvImport(type: 'availability' | 'scheduling_rules') {
+  csvImportType.value = type
+  csvImportDialogOpen.value = true
+}
+
+async function handleCsvImported() {
+  if (csvImportType.value === 'availability') {
+    await fetchAvailabilities()
+  } else {
+    await fetchRules()
   }
 }
 
 onMounted(() => {
   store.fetchSemesters()
-  store.fetchLecturers()
-  // Räume für Raum-Namen im Demo
-  store.fetchRooms()
+  fetchAvailabilities()
+  fetchRules()
 })
 </script>

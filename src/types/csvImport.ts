@@ -8,6 +8,8 @@ export type ImportType =
   | 'departments'
   | 'programs'
   | 'degrees'
+  | 'availability'
+  | 'scheduling_rules'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 

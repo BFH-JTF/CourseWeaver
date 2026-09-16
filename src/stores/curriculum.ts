@@ -4,8 +4,10 @@ import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
 import type { Department, Program, Degree, Module, ModuleConstraint } from '@/types/curriculum'
+import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
 
 export type { Department, Program, Degree, Module, ModuleConstraint }
+export type { LecturerAvailability, SchedulingRule }
 
 export interface CurriculumVersion {
   _id?: string
@@ -104,6 +106,8 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const rooms = ref<Room[]>([])
   const locations = ref<Location[]>([])
   const lecturers = ref<Lecturer[]>([])
+  const lecturerAvailabilities = ref<LecturerAvailability[]>([])
+  const schedulingRules = ref<SchedulingRule[]>([])
   const taxonomyItems = ref<TaxonomyItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -240,6 +244,30 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
+  async function fetchLecturerAvailabilities() {
+    loading.value = true
+    error.value = null
+    try {
+      lecturerAvailabilities.value = await fetchEntities<LecturerAvailability>(EntityTables.LECTURER_AVAILABILITY)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchSchedulingRules() {
+    loading.value = true
+    error.value = null
+    try {
+      schedulingRules.value = await fetchEntities<SchedulingRule>(EntityTables.SCHEDULING_RULE)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchTaxonomyItems() {
     loading.value = true
     error.value = null
@@ -264,6 +292,8 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     rooms,
     locations,
     lecturers,
+    lecturerAvailabilities,
+    schedulingRules,
     taxonomyItems,
     loading,
     error,
@@ -278,6 +308,8 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     fetchRooms,
     fetchLocations,
     fetchLecturers,
+    fetchLecturerAvailabilities,
+    fetchSchedulingRules,
     fetchTaxonomyItems,
   }
 })

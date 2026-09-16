@@ -10,6 +10,7 @@
       <v-tab value="programs">Programs</v-tab>
       <v-tab value="degrees">Degrees</v-tab>
       <v-tab value="modules">Modules</v-tab>
+      <v-tab value="semesters">Semesters</v-tab>
     </v-tabs>
 
     <v-window v-model="activeTab" class="mt-4">
@@ -315,6 +316,81 @@
           </template>
         </v-data-table>
       </v-window-item>
+
+      <!-- Semesters Tab -->
+      <v-window-item value="semesters">
+        <v-row class="align-center mb-4">
+          <v-col cols="12" sm="6" class="d-flex ga-2">
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddSemester">Add Semester</v-btn>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="semSearch"
+              prepend-inner-icon="mdi-magnify"
+              label="Search semesters"
+              single-line
+              hide-details
+              clearable
+              density="compact"
+            />
+          </v-col>
+        </v-row>
+
+        <v-data-table
+          :headers="semHeaders"
+          :items="filteredSemesters"
+          :sort-by="semSortBy"
+          @update:sort-by="semSortBy = $event"
+          hover
+          items-per-page="15"
+        >
+          <template #item.identifier="{ item }">
+            <span class="font-weight-medium">{{ item.identifier }}</span>
+          </template>
+          <template #item.startDate="{ item }">
+            {{ formatDate(item.startDate) }}
+          </template>
+          <template #item.endDate="{ item }">
+            {{ formatDate(item.endDate) }}
+          </template>
+          <template #item.holidays="{ item }">
+            <template v-if="item.holidays && item.holidays.length">
+              <v-chip v-for="(h, idx) in item.holidays" :key="idx" size="x-small" variant="tonal" color="warning" class="mr-1">
+                {{ h.label || `${h.start}–${h.end}` }}
+              </v-chip>
+            </template>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+          <template #item.specialDates="{ item }">
+            <template v-if="item.specialDates && item.specialDates.length">
+              <v-chip v-for="(sd, idx) in item.specialDates" :key="idx" size="x-small" variant="tonal" color="info" class="mr-1">
+                {{ sd.label || `${sd.start}–${sd.end}` }}
+              </v-chip>
+            </template>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+          <template #item.actions="{ item }">
+            <template v-if="auth.isAdmin">
+              <v-btn icon variant="text" size="small" @click="openEditSemester(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteSemester(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+          </template>
+          <template #no-data>
+            <div class="text-center pa-4">
+              <v-icon size="64" color="grey-lighten-1">mdi-school-outline</v-icon>
+              <p class="mt-2 text-medium-emphasis">No semesters found.</p>
+              <p class="text-caption text-medium-emphasis">Add a semester to define scheduling periods.</p>
+            </div>
+          </template>
+        </v-data-table>
+      </v-window-item>
     </v-window>
 
     <DepartmentFormDialog
@@ -342,6 +418,12 @@
       :module-data="editModule"
       :degrees="degrees"
       @save="handleModuleSave"
+    />
+
+    <SemesterFormDialog
+      v-model="semDialogOpen"
+      :semester-data="editSemester"
+      @save="handleSemesterSave"
     />
 
     <CsvImportDialog
@@ -376,13 +458,16 @@ import { useDepartments } from '@/composables/useDepartments'
 import { usePrograms } from '@/composables/usePrograms'
 import { useDegrees } from '@/composables/useDegrees'
 import { useModules } from '@/composables/useModules'
+import { useSemesters } from '@/composables/useSemesters'
 import { useAuthStore } from '@/stores/auth'
 import DepartmentFormDialog from '@/components/DepartmentFormDialog.vue'
 import ProgramFormDialog from '@/components/ProgramFormDialog.vue'
 import DegreeFormDialog from '@/components/DegreeFormDialog.vue'
 import ModuleFormDialog from '@/components/ModuleFormDialog.vue'
+import SemesterFormDialog from '@/components/SemesterFormDialog.vue'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
+import type { Semester } from '@/stores/curriculum'
 import type { ImportType } from '@/types/csvImport'
 
 const auth = useAuthStore()
@@ -419,7 +504,15 @@ const {
   removeModule,
 } = useModules()
 
-const activeTab = ref<'departments' | 'programs' | 'degrees' | 'modules'>('departments')
+const {
+  semesters: semesterList,
+  fetchSemesters,
+  addSemester,
+  updateSemester,
+  removeSemester,
+} = useSemesters()
+
+const activeTab = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'semesters'>('departments')
 
 const deptSearch = ref('')
 const deptDialogOpen = ref(false)
@@ -441,12 +534,17 @@ const modDialogOpen = ref(false)
 const editModule = ref<Module | undefined>(undefined)
 const modSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
 
+const semSearch = ref('')
+const semDialogOpen = ref(false)
+const editSemester = ref<Semester | null>(null)
+const semSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'startDate', order: 'desc' }])
+
 const csvImportDialogOpen = ref(false)
 const csvImportType = ref<ImportType>('departments')
 
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
-let deleteKind: 'department' | 'program' | 'degree' | 'module' = 'department'
+let deleteKind: 'department' | 'program' | 'degree' | 'module' | 'semester' = 'department'
 let deleteId = ''
 
 const snackbar = ref(false)
@@ -487,6 +585,15 @@ const modHeaders = [
   { title: 'Contact hrs', key: 'contactHours', sortable: true },
   { title: 'Self-study', key: 'selfStudyHours', sortable: true },
   { title: 'Constraints', key: 'constraints', sortable: false },
+  { title: '', key: 'actions', sortable: false, width: '100px' },
+]
+
+const semHeaders = [
+  { title: 'Identifier', key: 'identifier', sortable: true },
+  { title: 'Start', key: 'startDate', sortable: true },
+  { title: 'End', key: 'endDate', sortable: true },
+  { title: 'Holidays', key: 'holidays', sortable: false },
+  { title: 'Special Dates', key: 'specialDates', sortable: false },
   { title: '', key: 'actions', sortable: false, width: '100px' },
 ]
 
@@ -562,6 +669,23 @@ const filteredModules = computed(() => {
     getDegreeNames(m).some(n => n.toLowerCase().includes(q))
   )
 })
+
+const filteredSemesters = computed(() => {
+  if (!semSearch.value) return semesterList.value
+  const q = semSearch.value.toLowerCase()
+  return semesterList.value.filter(s =>
+    s.identifier.toLowerCase().includes(q)
+  )
+})
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '-'
+  try {
+    return new Date(dateStr).toLocaleDateString()
+  } catch {
+    return dateStr
+  }
+}
 
 function openAddDepartment() {
   editDepartment.value = undefined
@@ -687,6 +811,37 @@ function confirmDeleteModule(mod: Module) {
   deleteDialogOpen.value = true
 }
 
+function openAddSemester() {
+  editSemester.value = null
+  semDialogOpen.value = true
+}
+
+function openEditSemester(sem: Semester) {
+  editSemester.value = JSON.parse(JSON.stringify(sem))
+  semDialogOpen.value = true
+}
+
+async function handleSemesterSave(sem: Semester) {
+  try {
+    if (sem._id || sem.id) {
+      await updateSemester(sem)
+      showSnackbar('Semester updated')
+    } else {
+      await addSemester(sem)
+      showSnackbar('Semester added')
+    }
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+function confirmDeleteSemester(sem: Semester) {
+  deleteKind = 'semester'
+  deleteId = sem._id || sem.id || ''
+  deleteTargetName.value = sem.identifier
+  deleteDialogOpen.value = true
+}
+
 async function handleDelete() {
   try {
     if (deleteKind === 'department') {
@@ -698,6 +853,9 @@ async function handleDelete() {
     } else if (deleteKind === 'degree') {
       await removeDegree(deleteId)
       showSnackbar('Degree deleted')
+    } else if (deleteKind === 'semester') {
+      await removeSemester(deleteId)
+      showSnackbar('Semester deleted')
     } else {
       await removeModule(deleteId)
       showSnackbar('Module deleted')
@@ -744,5 +902,6 @@ onMounted(() => {
   fetchPrograms()
   fetchDegrees()
   fetchModules()
+  fetchSemesters()
 })
 </script>

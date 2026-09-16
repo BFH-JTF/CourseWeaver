@@ -45,12 +45,7 @@ const router = createRouter({
           name: 'taxonomy',
           component: () => import('@/views/TaxonomyView.vue'),
         },
-        {
-          path: 'modules',
-          name: 'modules',
-          component: () => import('@/views/ModulesView.vue'),
-        },
-        {
+{
           path: 'schedule',
           name: 'schedule',
           component: () => import('@/views/ScheduleView.vue'),

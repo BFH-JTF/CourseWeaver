@@ -5,6 +5,7 @@ import type { Competency, SkillLevel } from '@/types/competency'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
 import type { StudyProgram } from '@/stores/curriculum'
 import type { ProofOfKnowledge, AssessmentForm, AssignmentScope } from '@/types/proofOfKnowledge'
+import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
 
 export function normalizeHeader(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -1117,6 +1118,186 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         }
 
         return proof
+      })
+    },
+  },
+
+  availability: {
+    type: 'availability',
+    label: 'Lecturer Availability',
+    icon: 'mdi-calendar-clock',
+    description: 'Recurring weekly availability for lecturers.',
+    entityName: 'Availability',
+    fields: [
+      {
+        key: 'lecturerId',
+        label: 'Lecturer ID',
+        required: true,
+        type: 'string',
+        description: 'ID or name of the lecturer',
+        aliases: ['lecturer_id', 'lecturer id', 'lecturer', 'dozent', 'dozentid', 'instructor', 'instructor_id', 'teacher'],
+      },
+      {
+        key: 'semesterId',
+        label: 'Semester ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the semester this availability applies to',
+        aliases: ['semester_id', 'semester id', 'semester', 'semesterid'],
+      },
+      {
+        key: 'weekday',
+        label: 'Weekday',
+        required: false,
+        type: 'enum',
+        description: 'Day of the week for recurring availability',
+        options: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+          'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag',
+          'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        aliases: ['weekday', 'day', 'day_of_week', 'wochentag', 'tag', 'dayofweek'],
+      },
+      {
+        key: 'startTime',
+        label: 'Start Time',
+        required: false,
+        type: 'string',
+        description: 'Start time of availability slot (HH:MM format)',
+        aliases: ['start_time', 'start', 'von', 'begin', 'beginn', 'start_time'],
+      },
+      {
+        key: 'endTime',
+        label: 'End Time',
+        required: false,
+        type: 'string',
+        description: 'End time of availability slot (HH:MM format)',
+        aliases: ['end_time', 'end', 'bis', 'ende', 'end_time'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): LecturerAvailability[] => {
+      const grouped = new Map<string, LecturerAvailability>()
+      for (const row of mappedRows) {
+        const lecturerId = String(row.lecturerId || '').trim()
+        const semesterId = String(row.semesterId || '').trim()
+        if (!lecturerId) continue
+        const key = `${lecturerId}::${semesterId}`
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            lecturerId,
+            semesterId,
+            recurringAvailability: [],
+          })
+        }
+        const entry = grouped.get(key)!
+        if (row.weekday && row.startTime && row.endTime) {
+          let wd = String(row.weekday).toLowerCase().trim()
+          const dayMap: Record<string, string> = {
+            montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
+            donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
+            mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
+            fri: 'friday', sat: 'saturday', sun: 'sunday',
+          }
+          wd = dayMap[wd] || wd
+          entry.recurringAvailability.push({
+            weekday: wd as any,
+            startTime: String(row.startTime),
+            endTime: String(row.endTime),
+            label: row.label ? String(row.label) : undefined,
+          })
+        }
+      }
+      return Array.from(grouped.values())
+    },
+  },
+
+  scheduling_rules: {
+    type: 'scheduling_rules',
+    label: 'Scheduling Rules',
+    icon: 'mdi-tune-vertical',
+    description: 'Constraint rules for CP-SAT timetable generation.',
+    entityName: 'Rule',
+    fields: [
+      {
+        key: 'constraintId',
+        label: 'Constraint Rule',
+        required: true,
+        type: 'enum',
+        description: 'The scheduling constraint to apply',
+        options: [
+          'NO_TEACHER_OVERLAP', 'ROOM_CAPACITY', 'ROOM_OCCUPANCY', 'UNAVAILABLE_DATES',
+          'ALLOWED_WEEKDAYS', 'ALLOWED_PHASE', 'FIXED_DAY', 'WEEKLY_BALANCE',
+          'AVOID_FRIDAY_AFTERNOON', 'AVOID_SATURDAY', 'PREFER_MORNING',
+          'AVOID_EVENING', 'MINIMIZE_STUDENT_GAPS', 'PREFER_EARLY_DATES',
+        ],
+        aliases: ['constraint_id', 'constraint', 'rule', 'regel', 'constraintid', 'rule_id'],
+      },
+      {
+        key: 'semesterId',
+        label: 'Semester ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the semester this rule applies to',
+        aliases: ['semester_id', 'semester id', 'semester', 'semesterid'],
+      },
+      {
+        key: 'category',
+        label: 'Category',
+        required: true,
+        type: 'enum',
+        description: 'hard (must satisfy) or soft (preference with penalty)',
+        options: ['hard', 'soft'],
+        aliases: ['category', 'kategorie', 'type', 'constraint_category'],
+      },
+      {
+        key: 'weight',
+        label: 'Weight',
+        required: false,
+        type: 'number',
+        description: 'Penalty weight for soft constraints (hard always uses 1)',
+        defaultValue: 1,
+        aliases: ['weight', 'gewicht', 'penalty', 'priority'],
+      },
+      {
+        key: 'enabled',
+        label: 'Enabled',
+        required: false,
+        type: 'boolean',
+        description: 'Whether this rule is active (true/false)',
+        defaultValue: true,
+        aliases: ['enabled', 'active', 'aktiv', 'is_enabled'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Human-readable description of the rule',
+        aliases: ['description', 'beschreibung', 'desc', 'text', 'note'],
+      },
+      {
+        key: 'appliesTo',
+        label: 'Applies To',
+        required: false,
+        type: 'string',
+        description: 'Module IDs or names this rule applies to (comma-separated, empty = all)',
+        aliases: ['applies_to', 'applies', 'targets', 'modules', 'module_ids', 'gilt_fuer'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): SchedulingRule[] => {
+      return mappedRows.map(row => {
+        const rule: SchedulingRule = {
+          constraintId: String(row.constraintId || ''),
+          semesterId: String(row.semesterId || ''),
+          category: row.category === 'soft' ? 'soft' : 'hard',
+          weight: Number(row.weight) || 1,
+          enabled: parseBoolean(row.enabled ?? true),
+          description: row.description ? String(row.description) : undefined,
+          appliesTo: row.appliesTo ? parseStringArray(row.appliesTo) : undefined,
+          params: undefined,
+        }
+        if (rule.category === 'hard') {
+          rule.weight = 1
+        }
+        return rule
       })
     },
   },

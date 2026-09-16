@@ -25,6 +25,8 @@ export const EntityTables = {
   ROOM: 'rooms',
   LOCATION: 'locations',
   LECTURER: 'lecturers',
+  LECTURER_AVAILABILITY: 'lecturer_availability',
+  SCHEDULING_RULE: 'scheduling_rules',
   TAXONOMY: 'taxonomy_items',
   COMPETENCY: 'competencies',
   PROOF_OF_KNOWLEDGE: 'proofs_of_knowledge',
