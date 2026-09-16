@@ -71,6 +71,103 @@
 
         <v-divider class="mb-4" />
 
+        <!-- Field Requirements Overview -->
+        <div class="mb-4">
+          <div class="d-flex align-center justify-space-between mb-2">
+            <h3 class="text-subtitle-1 font-weight-bold d-flex align-center">
+              <v-icon start color="primary" icon="mdi-format-list-checks" />
+              Required Fields
+            </h3>
+            <v-btn-toggle v-model="fieldsOverviewMode" density="compact" mandatory color="primary" variant="outlined">
+              <v-btn value="compact" size="small">Summary</v-btn>
+              <v-btn value="detailed" size="small">Detailed</v-btn>
+            </v-btn-toggle>
+          </div>
+
+          <!-- Compact Summary -->
+          <template v-if="fieldsOverviewMode === 'compact'">
+            <div class="d-flex flex-wrap ga-2">
+              <v-chip
+                v-for="field in currentConfig.fields"
+                :key="field.key"
+                size="small"
+                :variant="field.required ? 'flat' : 'tonal'"
+                :color="field.required ? 'error' : 'default'"
+              >
+                <span>{{ field.label }}</span>
+                <v-icon v-if="field.required" end size="x-small">mdi-asterisk</v-icon>
+              </v-chip>
+            </div>
+            <div class="text-caption text-medium-emphasis mt-2">
+              <v-icon size="x-small" icon="mdi-asterisk" color="error" class="me-1" /> Mandatory
+              <span class="mx-1">|</span>
+              <span class="text-medium-emphasis">Optional</span>
+              <span class="mx-1">|</span>
+              {{ mandatoryFields.length }} mandatory, {{ optionalFields.length }} optional
+            </div>
+          </template>
+
+          <!-- Detailed View -->
+          <template v-else>
+            <v-row dense>
+              <v-col cols="12" md="6">
+                <v-card variant="outlined" class="mb-2">
+                  <v-card-item class="bg-red-lighten-5 py-2">
+                    <div class="font-weight-bold text-red-darken-3 d-flex align-center">
+                      <v-icon icon="mdi-asterisk" size="small" color="red" class="me-1" />
+                      Mandatory ({{ mandatoryFields.length }})
+                    </div>
+                  </v-card-item>
+                  <v-divider />
+                  <v-card-text class="pa-2">
+                    <div
+                      v-for="field in mandatoryFields"
+                      :key="field.key"
+                      class="d-flex align-center justify-space-between py-1"
+                    >
+                      <div class="d-flex align-center">
+                        <v-icon size="x-small" icon="mdi-circle-small" class="me-1" />
+                        <span class="text-body-2 font-weight-medium">{{ field.label }}</span>
+                      </div>
+                      <v-chip size="x-small" variant="text" class="text-caption text-disabled">
+                        {{ field.type }}<template v-if="field.options"> ({{ field.options.join(', ') }})</template>
+                      </v-chip>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-card variant="outlined" class="mb-2">
+                  <v-card-item class="py-2">
+                    <div class="font-weight-medium text-body-2 d-flex align-center">
+                      <v-icon icon="mdi-information-outline" size="small" class="me-1 text-medium-emphasis" />
+                      Optional ({{ optionalFields.length }})
+                    </div>
+                  </v-card-item>
+                  <v-divider />
+                  <v-card-text class="pa-2">
+                    <div
+                      v-for="field in optionalFields"
+                      :key="field.key"
+                      class="d-flex align-center justify-space-between py-1"
+                    >
+                      <div class="d-flex align-center">
+                        <v-icon size="x-small" icon="mdi-circle-small" class="me-1" />
+                        <span class="text-body-2">{{ field.label }}</span>
+                      </div>
+                      <v-chip size="x-small" variant="text" class="text-caption text-disabled">
+                        {{ field.type }}<template v-if="field.options"> ({{ field.options.join(', ') }})</template>
+                      </v-chip>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+          </template>
+        </div>
+
+        <v-divider class="mb-4" />
+
         <!-- Source Input: File Upload or Raw CSV Text -->
         <div class="mb-4">
           <v-tabs v-model="inputTab" density="compact" color="primary" class="mb-3">
@@ -447,6 +544,7 @@ const parsedCsv = ref<ParsedCsv | null>(null)
 const columnMapping = ref<ColumnMapping>({})
 const optionalPanel = ref<string | null>(null)
 const previewMode = ref<'mapped' | 'raw'>('mapped')
+const fieldsOverviewMode = ref<'compact' | 'detailed'>('compact')
 const errorMessage = ref<string | null>(null)
 const fileInputRef = ref<HTMLInputElement>()
 
@@ -657,6 +755,7 @@ function resetState() {
   columnMapping.value = {}
   errorMessage.value = null
   isDragging.value = false
+  fieldsOverviewMode.value = 'compact'
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
   }
