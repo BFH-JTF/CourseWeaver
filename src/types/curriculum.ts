@@ -1,4 +1,9 @@
-export interface Department {
+export interface AclInfo {
+  _canEdit?: boolean
+  _isAdmin?: boolean
+}
+
+export interface Department extends AclInfo {
   id?: string
   _id?: string
   name: string
@@ -10,7 +15,7 @@ export interface Department {
 
 export type DepartmentExport = Department[]
 
-export interface Program {
+export interface Program extends AclInfo {
   id?: string
   _id?: string
   name: string
@@ -24,7 +29,7 @@ export interface Program {
 
 export type ProgramExport = Program[]
 
-export interface Degree {
+export interface Degree extends AclInfo {
   id?: string
   _id?: string
   name: string
@@ -44,7 +49,7 @@ export interface ModuleConstraint {
   targetModuleId: string
 }
 
-export interface Module {
+export interface Module extends AclInfo {
   id?: string
   _id?: string
   name: string

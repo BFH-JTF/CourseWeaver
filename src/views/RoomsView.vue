@@ -12,8 +12,8 @@
       <v-window-item value="rooms">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddRoom">Add Room</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('rooms')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddRoom">Add Room</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('rooms')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -50,15 +50,22 @@
               {{ item.accessibility?.step_free_access ? 'mdi-check-circle' : 'mdi-close-circle' }}
             </v-icon>
           </template>
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditRoom(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteRoom(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditRoom(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteRoom(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -72,8 +79,8 @@
       <v-window-item value="locations">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddLocation">Add Location</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('locations')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddLocation">Add Location</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('locations')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -96,15 +103,22 @@
           hover
           items-per-page="15"
         >
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditLocation(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteLocation(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditLocation(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteLocation(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -160,12 +174,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRooms } from '@/composables/useRooms'
 import { useLocations } from '@/composables/useLocations'
+import { useAuthStore } from '@/stores/auth'
 import RoomFormDialog from '@/components/RoomFormDialog.vue'
 import LocationFormDialog from '@/components/LocationFormDialog.vue'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
 import type { ImportType } from '@/types/csvImport'
+
+const auth = useAuthStore()
 
 const {
   rooms,

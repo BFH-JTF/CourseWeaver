@@ -17,6 +17,14 @@ export interface LocalUser {
   updated_at: string
 }
 
+export interface EntityAclEntry {
+  table_name: string
+  entity_id: string
+  user_id: string
+  role: 'admin'
+  created_at: string
+}
+
 class AsyncMutex {
   private mutex = Promise.resolve()
 
@@ -45,6 +53,7 @@ const bootstrapMutex = new AsyncMutex()
 // In-memory fallback storage in case PostgreSQL server is not currently reachable
 const memoryStore: Map<string, Map<string, any>> = new Map()
 const memoryUsers: Map<string, LocalUser> = new Map()
+const memoryAcl: Map<string, EntityAclEntry> = new Map()
 
 function getMemoryTable(table: string): Map<string, any> {
   if (!memoryStore.has(table)) {
@@ -105,6 +114,18 @@ export async function initDatabase(): Promise<boolean> {
           CONSTRAINT uq_local_users_oidc UNIQUE (oidc_issuer, oidc_subject)
         );
         CREATE INDEX IF NOT EXISTS idx_local_users_admin ON local_users(is_admin);
+
+        CREATE TABLE IF NOT EXISTS entity_acl (
+          table_name VARCHAR(100) NOT NULL,
+          entity_id VARCHAR(255) NOT NULL,
+          user_id VARCHAR(255) NOT NULL,
+          role VARCHAR(50) NOT NULL DEFAULT 'admin',
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          PRIMARY KEY (table_name, entity_id, user_id),
+          FOREIGN KEY (user_id) REFERENCES local_users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_entity_acl_entity ON entity_acl(table_name, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_entity_acl_user ON entity_acl(user_id);
       `)
       isConnected = true
       console.log(`[Database] Successfully connected to PostgreSQL at ${config.host}:${config.port}/${config.database}`)
@@ -200,6 +221,27 @@ export async function getAllUsers(): Promise<LocalUser[]> {
   }
 
   return Array.from(memoryUsers.values()).map(u => ({ ...u }))
+}
+
+export async function searchUsers(query: string): Promise<LocalUser[]> {
+  const pattern = `%${query}%`
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        'SELECT * FROM local_users WHERE name ILIKE $1 OR email ILIKE $1 OR id ILIKE $1 ORDER BY name ASC LIMIT 20',
+        [pattern]
+      )
+      return res.rows.map(mapRowToUser)
+    } catch (err) {
+      console.error('[Database] Error searching users:', err)
+    }
+  }
+
+  const q = query.toLowerCase()
+  return Array.from(memoryUsers.values())
+    .filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.id.toLowerCase().includes(q))
+    .slice(0, 20)
+    .map(u => ({ ...u }))
 }
 
 export async function createOrUpdateUser(data: {
@@ -399,13 +441,138 @@ export async function bootstrapAdminUser(data: {
 export async function resetDbForTests(): Promise<void> {
   memoryStore.clear()
   memoryUsers.clear()
+  memoryAcl.clear()
   if (isConnected && pool) {
     try {
-      await pool.query('TRUNCATE TABLE entity_store, local_users')
+      await pool.query('TRUNCATE TABLE entity_acl, entity_store, local_users')
     } catch {
       // ignore
     }
   }
+}
+
+// ─── Object-Level ACL Functions ────────────────────────────────────────────────
+
+function aclKey(tableName: string, entityId: string, userId: string): string {
+  return `${tableName}::${entityId}::${userId}`
+}
+
+export async function getEntityAdmins(tableName: string, entityId: string): Promise<EntityAclEntry[]> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        'SELECT * FROM entity_acl WHERE table_name = $1 AND entity_id = $2 ORDER BY created_at ASC',
+        [tableName, entityId]
+      )
+      return res.rows.map(row => ({
+        table_name: row.table_name,
+        entity_id: row.entity_id,
+        user_id: row.user_id,
+        role: row.role,
+        created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ''),
+      }))
+    } catch (err) {
+      console.error(`[Database] Error fetching ACL for ${tableName}/${entityId}:`, err)
+    }
+  }
+
+  const results: EntityAclEntry[] = []
+  for (const entry of memoryAcl.values()) {
+    if (entry.table_name === tableName && entry.entity_id === entityId) {
+      results.push({ ...entry })
+    }
+  }
+  return results
+}
+
+export async function isEntityAdmin(tableName: string, entityId: string, userId: string): Promise<boolean> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        'SELECT 1 FROM entity_acl WHERE table_name = $1 AND entity_id = $2 AND user_id = $3',
+        [tableName, entityId, userId]
+      )
+      return res.rows.length > 0
+    } catch (err) {
+      console.error(`[Database] Error checking ACL for ${tableName}/${entityId}:`, err)
+    }
+  }
+
+  return memoryAcl.has(aclKey(tableName, entityId, userId))
+}
+
+export async function addEntityAdmin(tableName: string, entityId: string, userId: string): Promise<EntityAclEntry | null> {
+  const now = new Date().toISOString()
+
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        `INSERT INTO entity_acl (table_name, entity_id, user_id, role, created_at)
+         VALUES ($1, $2, $3, 'admin', $4)
+         ON CONFLICT (table_name, entity_id, user_id) DO NOTHING
+         RETURNING *`,
+        [tableName, entityId, userId, now]
+      )
+      if (res.rows.length > 0) {
+        return {
+          table_name: res.rows[0].table_name,
+          entity_id: res.rows[0].entity_id,
+          user_id: res.rows[0].user_id,
+          role: res.rows[0].role,
+          created_at: res.rows[0].created_at instanceof Date ? res.rows[0].created_at.toISOString() : String(res.rows[0].created_at),
+        }
+      }
+      return null
+    } catch (err) {
+      console.error(`[Database] Error adding ACL admin for ${tableName}/${entityId}:`, err)
+      return null
+    }
+  }
+
+  const key = aclKey(tableName, entityId, userId)
+  if (memoryAcl.has(key)) return null
+  const entry: EntityAclEntry = { table_name: tableName, entity_id: entityId, user_id: userId, role: 'admin', created_at: now }
+  memoryAcl.set(key, entry)
+  return { ...entry }
+}
+
+export async function removeEntityAdmin(tableName: string, entityId: string, userId: string): Promise<boolean> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        'DELETE FROM entity_acl WHERE table_name = $1 AND entity_id = $2 AND user_id = $3',
+        [tableName, entityId, userId]
+      )
+      return (res.rowCount ?? 0) > 0
+    } catch (err) {
+      console.error(`[Database] Error removing ACL admin for ${tableName}/${entityId}:`, err)
+      return false
+    }
+  }
+
+  return memoryAcl.delete(aclKey(tableName, entityId, userId))
+}
+
+export async function getEntitiesWhereUserIsAdmin(userId: string): Promise<Array<{ table_name: string; entity_id: string }>> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        'SELECT table_name, entity_id FROM entity_acl WHERE user_id = $1',
+        [userId]
+      )
+      return res.rows.map((row: any) => ({ table_name: row.table_name, entity_id: row.entity_id }))
+    } catch (err) {
+      console.error(`[Database] Error fetching admin entities for user ${userId}:`, err)
+    }
+  }
+
+  const results: Array<{ table_name: string; entity_id: string }> = []
+  for (const entry of memoryAcl.values()) {
+    if (entry.user_id === userId) {
+      results.push({ table_name: entry.table_name, entity_id: entry.entity_id })
+    }
+  }
+  return results
 }
 
 export async function getAllEntities(tableName: string): Promise<any[]> {
@@ -495,6 +662,7 @@ export async function saveEntity(tableName: string, id: string, data: any): Prom
 export async function deleteEntity(tableName: string, id: string): Promise<boolean> {
   if (isConnected && pool) {
     try {
+      await pool.query('DELETE FROM entity_acl WHERE table_name = $1 AND entity_id = $2', [tableName, id])
       const res = await pool.query(
         'DELETE FROM entity_store WHERE table_name = $1 AND id = $2',
         [tableName, id]
@@ -505,6 +673,12 @@ export async function deleteEntity(tableName: string, id: string): Promise<boole
     }
   }
 
+  // Also clean memory ACL entries for this entity
+  for (const key of memoryAcl.keys()) {
+    if (key.startsWith(`${tableName}::${id}::`)) {
+      memoryAcl.delete(key)
+    }
+  }
   const table = getMemoryTable(tableName)
   return table.delete(id)
 }

@@ -1,3 +1,5 @@
+import type { AclInfo } from '@/types/curriculum'
+
 export type RoomType =
   | 'lecture_hall'
   | 'classroom'
@@ -118,7 +120,7 @@ export interface RoomMaintenance {
   last_updated: string
 }
 
-export interface Room {
+export interface Room extends AclInfo {
   id?: string
   name: string
   room_type: RoomType

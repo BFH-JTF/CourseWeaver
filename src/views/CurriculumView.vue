@@ -17,8 +17,8 @@
       <v-window-item value="departments">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddDepartment">Add Department</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('departments')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddDepartment">Add Department</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('departments')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -53,15 +53,22 @@
             </a>
             <span v-else class="text-medium-emphasis">-</span>
           </template>
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditDepartment(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteDepartment(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditDepartment(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteDepartment(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -76,8 +83,8 @@
       <v-window-item value="programs">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddProgram">Add Program</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('programs')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddProgram">Add Program</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('programs')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -120,15 +127,22 @@
             </a>
             <span v-else class="text-medium-emphasis">-</span>
           </template>
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditProgram(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteProgram(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditProgram(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteProgram(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -143,8 +157,8 @@
       <v-window-item value="degrees">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('degrees')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('degrees')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -187,15 +201,22 @@
             </a>
             <span v-else class="text-medium-emphasis">-</span>
           </template>
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditDegree(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteDegree(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditDegree(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteDegree(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -210,8 +231,8 @@
       <v-window-item value="modules">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('modules')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('modules')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -269,15 +290,22 @@
             </template>
             <span v-else class="text-medium-emphasis">-</span>
           </template>
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditModule(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteModule(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditModule(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteModule(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -348,6 +376,7 @@ import { useDepartments } from '@/composables/useDepartments'
 import { usePrograms } from '@/composables/usePrograms'
 import { useDegrees } from '@/composables/useDegrees'
 import { useModules } from '@/composables/useModules'
+import { useAuthStore } from '@/stores/auth'
 import DepartmentFormDialog from '@/components/DepartmentFormDialog.vue'
 import ProgramFormDialog from '@/components/ProgramFormDialog.vue'
 import DegreeFormDialog from '@/components/DegreeFormDialog.vue'
@@ -355,6 +384,8 @@ import ModuleFormDialog from '@/components/ModuleFormDialog.vue'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
 import type { ImportType } from '@/types/csvImport'
+
+const auth = useAuthStore()
 
 const {
   departments,

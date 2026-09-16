@@ -7,10 +7,29 @@ import {
 import {
   getAllUsers,
   getUserById,
+  searchUsers,
   updateUser,
 } from '../db'
 
 export const usersRouter = Router()
+
+/**
+ * GET /api/users/search?q=...
+ * Search users by name, email, or ID. Admin only.
+ */
+usersRouter.get('/search', authenticateLocalUser, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const q = String(req.query.q || '')
+    if (!q || q.length < 1) {
+      res.json([])
+      return
+    }
+    const users = await searchUsers(q)
+    res.json(users)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to search users' })
+  }
+})
 
 /**
  * GET /api/users

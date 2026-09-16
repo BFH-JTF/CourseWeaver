@@ -1,6 +1,8 @@
+import type { AclInfo } from '@/types/curriculum'
+
 export type SkillLevel = 'Introduction' | 'Regular' | 'Master' | 'I' | 'R' | 'M'
 
-export interface Competency {
+export interface Competency extends AclInfo {
   id?: string
   _id?: string
   name: string

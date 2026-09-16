@@ -1,7 +1,9 @@
+import type { AclInfo } from '@/types/curriculum'
+
 export type AssessmentForm = 'written' | 'oral'
 export type AssignmentScope = 'individual' | 'group'
 
-export interface ProofOfKnowledge {
+export interface ProofOfKnowledge extends AclInfo {
   id?: string
   _id?: string
   name: string
