@@ -1,0 +1,181 @@
+erDiagram
+
+    DEPARTMENT }| -- |{ PROGRAM : "offers"
+    PROGRAM }|--|{ DEGREE : "offers"
+    DEGREE }|--|{ MODULE : "contains"
+
+    MODULE }o--|{ CLASS_ENTITY : "taken by"
+    MODULE }|--o{ LECTURER : "taught by"
+
+    LOCATION o|--|{ ROOM : "contains"
+
+    PROGRAM }|--|{ CURRICULUM_VERSION : "has versions"
+    CURRICULUM_VERSION ||--o{ SEMESTER : "used by"
+    SEMESTER }|--o{ CLASS_ENTITY : "applies to"
+
+    LECTURER ||--o{ LECTURER_AVAILABILITY : "has"
+
+    SEMESTER ||--o{ SCHEDULING_RULES : "has"
+
+    MODULE }|--o{ COMPETENCY : "develops"
+    MODULE }o--o{ PROOF_OF_COMPETENCY : "assessed by"
+    PROOF_OF_COMPETENCY }|--o{ COMPETENCY : "evaluates"
+
+    WEEK_LECTURE ||--|{ MODULE : "teaches"
+    ROOM }|--|| WEEK_LECTURE : "hosts"
+    ROOM }|--|| ROOM_AVAILABILITY : "has"
+
+    ROOM_AVAILABILITY }|--|{ SEMESTER_SCHEDULE : "informs"
+    LECTURER_AVAILABILITY }|--|{ SEMESTER_SCHEDULE : "informs"
+    CLASS_ENTITY }|--|{ SEMESTER_SCHEDULE : "informs"
+    SCHEDULING_RULES }|--|{ SEMESTER_SCHEDULE : "inform"
+    SEMESTER ||--|| SEMESTER_SCHEDULE : "has"
+    SEMESTER_SCHEDULE ||--}| WEEK_LECTURE : "defines"
+
+    DEPARTMENT {
+        string id PK
+        string name
+        string description
+        string contact
+        string url
+    }
+
+    PROGRAM {
+        string id PK
+        string name
+        string description
+        string departmentIds FK
+        string contact
+        string url
+    }
+
+    DEGREE {
+        string id PK
+        string name
+        string description
+        string programIds FK
+        string contact
+        string url
+    }
+
+    MODULE {
+        string id PK
+        string name
+        string code
+        string description
+        string degreeIds FK
+        number creditPoints
+        number contactHours
+        number selfStudyHours
+    }
+
+    CLASS_ENTITY {
+        string id PK
+        string name
+        string code
+        string description
+        number startYear
+        string semesterId FK
+        string moduleIds FK
+        number size
+        string contact
+        string url
+    }
+
+    COMPETENCY {
+        string id PK
+        string name
+        string category
+        string topic
+        string description
+        string level
+    }
+
+    PROOF_OF_COMPETENCY {
+        string id PK
+        string name
+        string description
+        string assessmentType
+        boolean multipleChoice
+        boolean freeText
+        string assignmentScope
+        number durationMinutes
+    }
+
+    LOCATION {
+        string id PK
+        string name
+        string campus
+        string building
+        string address
+        number latitude
+        number longitude
+    }
+
+    ROOM {
+        string id PK
+        string name
+        string room_type
+        string owner
+        string location_id FK
+        string floor
+        string room_number
+    }
+
+    LECTURER_AVAILABILITY {
+        string id PK
+        string lecturerId FK
+        string weekday
+        string startTime
+        string endTime
+    }
+
+    ROOM_AVAILABILITY {
+        string id PK
+        string roomId FK
+        string weekday
+        string startTime
+        string endTime
+    }
+
+    SEMESTER {
+        string id PK
+        string name
+        string code
+        string startDate
+        string endDate
+        array daysOff
+        string curriculumVersionId FK
+        string schedulingRulesId FK
+    }
+
+    LECTURER {
+        string id PK
+        string userId
+        string moduleIds
+    }
+
+    WEEK_LECTURE {
+        string id PK
+        string moduleIds
+        string roomId
+        string weekday
+        string startTime
+        string endTime
+    }
+
+    CURRICULUM_VERSION {
+        string id PK
+        string programId FK
+        number versionNumber
+    }
+
+    SCHEDULING_RULES {
+        string id PK
+        boolean no_idea_yet
+    }
+
+    SEMESTER_SCHEDULE {
+        string id PK
+        string semesterId
+    }

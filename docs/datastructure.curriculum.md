@@ -20,7 +20,7 @@ A degree is an academic qualification awarded to a student who successfully comp
 - id
 - name
 - description
-- ProgramIDs (array)
+- programIDs (array)
 - contact
 - URL
 
@@ -29,6 +29,14 @@ A module is an individual unit of study within a program, focused on a particula
 - id
 - name
 - description
-- DegreeIDs (array)
+- degreeIDs (array)
 - contact
 - URL
+
+# Class
+- id
+- name
+- description
+- moduleIDs (array)
+- class availability
+- expected class size

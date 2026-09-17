@@ -52,7 +52,7 @@ These are rules almost every university needs regardless of faculty/department, 
 ### Coverage
 
 - Each course scheduled for its required weekly contact hours (e.g., 2×90min lecture + 1×90min tutorial)
-- Lab/practical sessions immediately follow or are paired correctly with their lecture
+- Warnings are generated if mo
 
 ### Common preferences (bundled as one toggle, e.g. "Reasonable schedule")
 

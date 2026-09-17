@@ -2,7 +2,7 @@
   <v-container>
     <h1 class="mb-1">Curriculum</h1>
     <p class="text-body-2 text-medium-emphasis mb-4">
-      Manage departments, programs, degrees, and modules across the curriculum.
+      Manage departments, programs, degrees, modules, classes, and semesters across the curriculum.
     </p>
 
     <v-tabs v-model="activeTab">
@@ -10,6 +10,7 @@
       <v-tab value="programs">Programs</v-tab>
       <v-tab value="degrees">Degrees</v-tab>
       <v-tab value="modules">Modules</v-tab>
+      <v-tab value="classes">Classes</v-tab>
       <v-tab value="semesters">Semesters</v-tab>
     </v-tabs>
 
@@ -317,6 +318,91 @@
         </v-data-table>
       </v-window-item>
 
+      <!-- Classes Tab -->
+      <v-window-item value="classes">
+        <v-row class="align-center mb-4">
+          <v-col cols="12" sm="6" class="d-flex ga-2">
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddClass">Add Class</v-btn>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="clsSearch"
+              prepend-inner-icon="mdi-magnify"
+              label="Search classes"
+              single-line
+              hide-details
+              clearable
+              density="compact"
+            />
+          </v-col>
+        </v-row>
+
+        <v-data-table
+          :headers="clsHeaders"
+          :items="filteredClasses"
+          :sort-by="clsSortBy"
+          @update:sort-by="clsSortBy = $event"
+          hover
+          items-per-page="15"
+        >
+          <template #item.code="{ item }">
+            {{ item.code || '-' }}
+          </template>
+          <template #item.year="{ item }">
+            {{ item.year ?? '-' }}
+          </template>
+          <template #item.size="{ item }">
+            {{ item.size ?? '-' }}
+          </template>
+          <template #item.programIds="{ item }">
+            <template v-if="getClassProgramNames(item).length">
+              <v-chip v-for="name in getClassProgramNames(item)" :key="name" size="x-small" variant="tonal" color="secondary" class="mr-1">
+                {{ name }}
+              </v-chip>
+            </template>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.semesterId="{ item }">
+            {{ getSemesterName(item.semesterId) || '-' }}
+          </template>
+          <template #item.description="{ item }">
+            {{ item.description || '-' }}
+          </template>
+          <template #item.contact="{ item }">
+            {{ item.contact || '-' }}
+          </template>
+          <template #item.url="{ item }">
+            <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
+              {{ item.url || item.URL }}
+            </a>
+            <span v-else class="text-medium-emphasis">-</span>
+          </template>
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
+          <template #item.actions="{ item }">
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditClass(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteClass(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+          </template>
+          <template #no-data>
+            <div class="text-center pa-4">
+              <v-icon size="64" color="grey-lighten-1">mdi-account-group</v-icon>
+              <p class="mt-2 text-medium-emphasis">No classes found.</p>
+            </div>
+          </template>
+        </v-data-table>
+      </v-window-item>
+
       <!-- Semesters Tab -->
       <v-window-item value="semesters">
         <v-row class="align-center mb-4">
@@ -420,6 +506,14 @@
       @save="handleModuleSave"
     />
 
+    <ClassFormDialog
+      v-model="clsDialogOpen"
+      :class-data="editClass"
+      :programs="programs"
+      :semesters="semesterList"
+      @save="handleClassSave"
+    />
+
     <SemesterFormDialog
       v-model="semDialogOpen"
       :semester-data="editSemester"
@@ -459,14 +553,17 @@ import { usePrograms } from '@/composables/usePrograms'
 import { useDegrees } from '@/composables/useDegrees'
 import { useModules } from '@/composables/useModules'
 import { useSemesters } from '@/composables/useSemesters'
+import { useClasses } from '@/composables/useClasses'
 import { useAuthStore } from '@/stores/auth'
 import DepartmentFormDialog from '@/components/DepartmentFormDialog.vue'
 import ProgramFormDialog from '@/components/ProgramFormDialog.vue'
 import DegreeFormDialog from '@/components/DegreeFormDialog.vue'
 import ModuleFormDialog from '@/components/ModuleFormDialog.vue'
+import ClassFormDialog from '@/components/ClassFormDialog.vue'
 import SemesterFormDialog from '@/components/SemesterFormDialog.vue'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
+import type { ClassEntity } from '@/types/curriculumClass'
 import type { Semester } from '@/stores/curriculum'
 import type { ImportType } from '@/types/csvImport'
 
@@ -505,6 +602,14 @@ const {
 } = useModules()
 
 const {
+  classes,
+  fetchClasses,
+  addClass,
+  updateClass,
+  removeClass,
+} = useClasses()
+
+const {
   semesters: semesterList,
   fetchSemesters,
   addSemester,
@@ -512,7 +617,7 @@ const {
   removeSemester,
 } = useSemesters()
 
-const activeTab = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'semesters'>('departments')
+const activeTab = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'classes' | 'semesters'>('departments')
 
 const deptSearch = ref('')
 const deptDialogOpen = ref(false)
@@ -534,6 +639,11 @@ const modDialogOpen = ref(false)
 const editModule = ref<Module | undefined>(undefined)
 const modSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
 
+const clsSearch = ref('')
+const clsDialogOpen = ref(false)
+const editClass = ref<ClassEntity | undefined>(undefined)
+const clsSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+
 const semSearch = ref('')
 const semDialogOpen = ref(false)
 const editSemester = ref<Semester | null>(null)
@@ -544,7 +654,7 @@ const csvImportType = ref<ImportType>('departments')
 
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
-let deleteKind: 'department' | 'program' | 'degree' | 'module' | 'semester' = 'department'
+let deleteKind: 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' = 'department'
 let deleteId = ''
 
 const snackbar = ref(false)
@@ -588,6 +698,18 @@ const modHeaders = [
   { title: '', key: 'actions', sortable: false, width: '100px' },
 ]
 
+const clsHeaders = [
+  { title: 'Code', key: 'code', sortable: true },
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Programs', key: 'programIds', sortable: false },
+  { title: 'Year', key: 'year', sortable: true },
+  { title: 'Size', key: 'size', sortable: true },
+  { title: 'Semester', key: 'semesterId', sortable: false },
+  { title: 'Description', key: 'description', sortable: true },
+  { title: 'Contact', key: 'contact', sortable: true },
+  { title: '', key: 'actions', sortable: false, width: '100px' },
+]
+
 const semHeaders = [
   { title: 'Identifier', key: 'identifier', sortable: true },
   { title: 'Start', key: 'startDate', sortable: true },
@@ -624,6 +746,20 @@ function getDegreeNames(mod: Module): string[] {
 function getModuleName(moduleId: string): string {
   const mod = modules.value.find(m => m.id === moduleId)
   return mod ? (mod.code || mod.name) : moduleId
+}
+
+function getClassProgramNames(cls: ClassEntity): string[] {
+  const ids = cls.programIds ?? []
+  return ids.map((id: string) => {
+    const prog = programs.value.find(p => p.id === id)
+    return prog ? prog.name : id
+  })
+}
+
+function getSemesterName(semesterId: string | undefined): string {
+  if (!semesterId) return ''
+  const sem = semesterList.value.find(s => (s._id || s.id) === semesterId)
+  return sem ? sem.identifier : semesterId
 }
 
 const filteredDepartments = computed(() => {
@@ -667,6 +803,18 @@ const filteredModules = computed(() => {
     (m.description ?? '').toLowerCase().includes(q) ||
     (m.contact ?? '').toLowerCase().includes(q) ||
     getDegreeNames(m).some(n => n.toLowerCase().includes(q))
+  )
+})
+
+const filteredClasses = computed(() => {
+  if (!clsSearch.value) return classes.value
+  const q = clsSearch.value.toLowerCase()
+  return classes.value.filter(c =>
+    c.name.toLowerCase().includes(q) ||
+    (c.code ?? '').toLowerCase().includes(q) ||
+    (c.description ?? '').toLowerCase().includes(q) ||
+    (c.contact ?? '').toLowerCase().includes(q) ||
+    getClassProgramNames(c).some(n => n.toLowerCase().includes(q))
   )
 })
 
@@ -811,6 +959,37 @@ function confirmDeleteModule(mod: Module) {
   deleteDialogOpen.value = true
 }
 
+function openAddClass() {
+  editClass.value = undefined
+  clsDialogOpen.value = true
+}
+
+function openEditClass(cls: ClassEntity) {
+  editClass.value = cls
+  clsDialogOpen.value = true
+}
+
+async function handleClassSave(cls: ClassEntity) {
+  try {
+    if (cls.id) {
+      await updateClass(cls)
+      showSnackbar('Class updated')
+    } else {
+      await addClass(cls)
+      showSnackbar('Class added')
+    }
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+function confirmDeleteClass(cls: ClassEntity) {
+  deleteKind = 'class'
+  deleteId = cls.id ?? ''
+  deleteTargetName.value = cls.name
+  deleteDialogOpen.value = true
+}
+
 function openAddSemester() {
   editSemester.value = null
   semDialogOpen.value = true
@@ -853,6 +1032,9 @@ async function handleDelete() {
     } else if (deleteKind === 'degree') {
       await removeDegree(deleteId)
       showSnackbar('Degree deleted')
+    } else if (deleteKind === 'class') {
+      await removeClass(deleteId)
+      showSnackbar('Class deleted')
     } else if (deleteKind === 'semester') {
       await removeSemester(deleteId)
       showSnackbar('Semester deleted')
@@ -902,6 +1084,7 @@ onMounted(() => {
   fetchPrograms()
   fetchDegrees()
   fetchModules()
+  fetchClasses()
   fetchSemesters()
 })
 </script>
