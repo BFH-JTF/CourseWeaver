@@ -25,9 +25,9 @@ export interface LecturerAvailability {
   _id?: string
   id?: string
   lecturerId: string
-  semesterId: string
-  lecturerName?: string
-  recurringAvailability: RecurringAvailability[]
+  weekday: Weekday
+  startTime: string
+  endTime: string
   created_at?: string
   updated_at?: string
 }

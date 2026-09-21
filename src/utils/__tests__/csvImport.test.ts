@@ -6,7 +6,7 @@ import { autoMapColumns, IMPORT_CONFIGS } from '../csvSchemas'
 import type { Competency } from '../../types/competency'
 import type { Location } from '../../types/location'
 import type { Room } from '../../types/room'
-import type { ProofOfKnowledge } from '../../types/proofOfKnowledge'
+import type { ProofOfCompetency } from '../../types/proofOfCompetency'
 import type { Department, Program, Degree, Module } from '../../types/curriculum'
 
 console.log('--- Starting CSV Import Unit Tests ---')
@@ -196,13 +196,13 @@ assert.strictEqual(headerlessRooms[1]!.room_type, 'computer_lab')
 assert.strictEqual(headerlessRooms[1]!.capacity.seats, 40)
 console.log('✓ Headerless CSV parsing and mapping passed')
 
-// 9. Test Proofs of Knowledge mapping & transformation
+// 9. Test Proofs of Competency mapping & transformation
 const proofCsv = `name,description,assessment_type,multiple_choice,free_text,assignment_type,duration_minutes
 Midterm Exam,Covers modules 1 to 4,written,true,true,individual,90
 Project Presentation,Group project pitch and demo,oral,false,false,group,30`
 
 const proofParsed = parseCsv(proofCsv)
-const proofConfig = IMPORT_CONFIGS.proofs_of_knowledge
+const proofConfig = IMPORT_CONFIGS.proofs_of_competency
 const proofMapping = autoMapColumns(proofParsed.headers, proofConfig.fields)
 assert.strictEqual(proofMapping.name, 'name')
 assert.strictEqual(proofMapping.description, 'description')
@@ -222,7 +222,7 @@ const proofMappedRows = proofParsed.rows.map(row => {
   }
   return obj
 })
-const proofs = proofConfig.transform(proofMappedRows) as ProofOfKnowledge[]
+const proofs = proofConfig.transform(proofMappedRows) as ProofOfCompetency[]
 assert.strictEqual(proofs.length, 2)
 assert.strictEqual(proofs[0]!.name, 'Midterm Exam')
 assert.strictEqual(proofs[0]!.assessmentType, 'written')
@@ -237,7 +237,7 @@ assert.strictEqual(proofs[1]!.multipleChoice, false)
 assert.strictEqual(proofs[1]!.freeText, false)
 assert.strictEqual(proofs[1]!.assignmentScope, 'group')
 assert.strictEqual(proofs[1]!.durationMinutes, 30)
-console.log('✓ Proof of Knowledge auto-mapping and transformation passed')
+console.log('✓ Proof of Competency auto-mapping and transformation passed')
 
 // 10. Test Department mapping & transformation
 const deptCsv = `id,name,description,contact,URL

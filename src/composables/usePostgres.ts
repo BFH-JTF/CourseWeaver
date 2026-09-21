@@ -26,14 +26,20 @@ export const EntityTables = {
   LOCATION: 'locations',
   LECTURER: 'lecturers',
   LECTURER_AVAILABILITY: 'lecturer_availability',
+  ROOM_AVAILABILITY: 'room_availability',
   SCHEDULING_RULE: 'scheduling_rules',
   TAXONOMY: 'taxonomy_items',
   COMPETENCY: 'competencies',
+  MATRIX_COMPETENCY: 'matrix_competencies',
+  PROOF_OF_COMPETENCY: 'proofs_of_competency',
+  /** @deprecated Use PROOF_OF_COMPETENCY instead */
   PROOF_OF_KNOWLEDGE: 'proofs_of_knowledge',
   DEPARTMENT: 'departments',
   PROGRAM: 'programs',
   DEGREE: 'degrees',
   CLASS: 'classes',
+  WEEK_LECTURE: 'week_lectures',
+  SEMESTER_SCHEDULE: 'semester_schedules',
 } as const
 
 export type EntityTableName = (typeof EntityTables)[keyof typeof EntityTables]

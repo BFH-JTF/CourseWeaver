@@ -4,12 +4,16 @@ export type ImportType =
   | 'competencies'
   | 'modules'
   | 'study_programs'
+  | 'proofs_of_competency'
   | 'proofs_of_knowledge'
   | 'departments'
   | 'programs'
   | 'degrees'
   | 'availability'
   | 'scheduling_rules'
+  | 'room_availability'
+  | 'week_lectures'
+  | 'matrix_competencies'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 

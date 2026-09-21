@@ -4,8 +4,11 @@ import type { Location } from '@/types/location'
 import type { Competency, SkillLevel } from '@/types/competency'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
 import type { StudyProgram } from '@/stores/curriculum'
-import type { ProofOfKnowledge, AssessmentForm, AssignmentScope } from '@/types/proofOfKnowledge'
+import type { ProofOfCompetency, AssessmentForm, AssignmentScope } from '@/types/proofOfCompetency'
 import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
+import type { MatrixCompetency } from '@/types/matrixCompetency'
+import type { RoomAvailability } from '@/types/roomAvailability'
+import type { WeekLecture } from '@/types/weekLecture'
 
 export function normalizeHeader(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -1022,11 +1025,121 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
     },
   },
 
-  proofs_of_knowledge: {
-    type: 'proofs_of_knowledge',
-    label: 'Proofs of Knowledge',
+  proofs_of_competency: {
+    type: 'proofs_of_competency',
+    label: 'Proofs of Competency',
     icon: 'mdi-file-certificate-outline',
     description: 'Assessment methods, exams, assignments, and duration.',
+    entityName: 'Proof of Competency',
+    fields: [
+      {
+        key: 'name',
+        label: 'Name',
+        required: true,
+        type: 'string',
+        description: 'Name or title of the proof of competency (e.g. Final Written Exam)',
+        aliases: ['name', 'title', 'bezeichnung', 'pruefung', 'exam', 'assessment', 'proof', 'proof_name'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Detailed description or criteria for the assessment',
+        aliases: ['description', 'beschreibung', 'details', 'criteria', 'desc'],
+      },
+      {
+        key: 'assessmentType',
+        label: 'Format (Written / Oral)',
+        required: false,
+        type: 'enum',
+        description: 'written or oral',
+        options: ['written', 'oral', 'Written', 'Oral', 'schriftlich', 'muendlich'],
+        defaultValue: 'written',
+        aliases: ['assessmenttype', 'assessment_type', 'format', 'type', 'art', 'written_oral', 'form'],
+      },
+      {
+        key: 'multipleChoice',
+        label: 'Multiple Choice Questions',
+        required: false,
+        type: 'boolean',
+        description: 'Whether multiple choice questions are included (true/false)',
+        aliases: ['multiplechoice', 'multiple_choice', 'mc', 'multiple choice', 'single_choice'],
+      },
+      {
+        key: 'freeText',
+        label: 'Free Text Questions',
+        required: false,
+        type: 'boolean',
+        description: 'Whether free text questions are included (true/false)',
+        aliases: ['freetext', 'free_text', 'free text', 'freitext', 'essay', 'open_questions'],
+      },
+      {
+        key: 'assignmentScope',
+        label: 'Assignment Type (Individual / Group)',
+        required: false,
+        type: 'enum',
+        description: 'individual or group',
+        options: ['individual', 'group', 'Individual', 'Group', 'einzelarbeit', 'gruppenarbeit'],
+        defaultValue: 'individual',
+        aliases: ['assignmentscope', 'assignment_scope', 'assignment_type', 'individual_group', 'group_assignment', 'scope'],
+      },
+      {
+        key: 'durationMinutes',
+        label: 'Duration of Test (min)',
+        required: false,
+        type: 'number',
+        description: 'Test duration in minutes',
+        aliases: ['durationminutes', 'duration_minutes', 'duration', 'dauer', 'pruefungsdauer', 'minutes', 'minuten', 'zeit'],
+      },
+      {
+        key: 'competencyIds',
+        label: 'Competency IDs',
+        required: false,
+        type: 'string',
+        description: 'Referenced competency IDs (comma, semicolon, or pipe separated)',
+        aliases: ['competencyids', 'competency_ids', 'competency ids', 'competencyid', 'competency_id', 'competencies', 'kompetenzen'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): ProofOfCompetency[] => {
+      return mappedRows.map(obj => {
+        let assessmentType: AssessmentForm = 'written'
+        const at = String(obj.assessmentType || '').toLowerCase().trim()
+        if (at.includes('oral') || at.includes('muend')) {
+          assessmentType = 'oral'
+        }
+
+        let assignmentScope: AssignmentScope = 'individual'
+        const as = String(obj.assignmentScope || '').toLowerCase().trim()
+        if (as.includes('group') || as.includes('grupp')) {
+          assignmentScope = 'group'
+        }
+
+        const proof: ProofOfCompetency = {
+          name: String(obj.name || 'Unnamed Proof of Competency'),
+          assessmentType,
+          multipleChoice: parseBoolean(obj.multipleChoice),
+          freeText: parseBoolean(obj.freeText),
+          assignmentScope,
+        }
+
+        if (obj.description) proof.description = String(obj.description)
+        if (obj.durationMinutes !== undefined && obj.durationMinutes !== '') {
+          proof.durationMinutes = Number(obj.durationMinutes) || undefined
+        }
+        const compIds = parseStringArray(obj.competencyIds)
+        if (compIds.length > 0) proof.competencyIds = compIds
+
+        return proof
+      })
+    },
+  },
+
+  proofs_of_knowledge: {
+    type: 'proofs_of_knowledge',
+    label: 'Proofs of Knowledge (Legacy)',
+    icon: 'mdi-file-certificate-outline',
+    description: 'Legacy assessment methods. Prefer Proofs of Competency.',
     entityName: 'Proof of Knowledge',
     fields: [
       {
@@ -1090,7 +1203,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['durationminutes', 'duration_minutes', 'duration', 'dauer', 'pruefungsdauer', 'minutes', 'minuten', 'zeit'],
       },
     ],
-    transform: (mappedRows: Record<string, any>[]): ProofOfKnowledge[] => {
+    transform: (mappedRows: Record<string, any>[]): ProofOfCompetency[] => {
       return mappedRows.map(obj => {
         let assessmentType: AssessmentForm = 'written'
         const at = String(obj.assessmentType || '').toLowerCase().trim()
@@ -1104,8 +1217,8 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           assignmentScope = 'group'
         }
 
-        const proof: ProofOfKnowledge = {
-          name: String(obj.name || 'Unnamed Proof of Knowledge'),
+        const proof: ProofOfCompetency = {
+          name: String(obj.name || 'Unnamed Proof of Competency'),
           assessmentType,
           multipleChoice: parseBoolean(obj.multipleChoice),
           freeText: parseBoolean(obj.freeText),
@@ -1174,38 +1287,22 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
       },
     ],
     transform: (mappedRows: Record<string, any>[]): LecturerAvailability[] => {
-      const grouped = new Map<string, LecturerAvailability>()
-      for (const row of mappedRows) {
-        const lecturerId = String(row.lecturerId || '').trim()
-        const semesterId = String(row.semesterId || '').trim()
-        if (!lecturerId) continue
-        const key = `${lecturerId}::${semesterId}`
-        if (!grouped.has(key)) {
-          grouped.set(key, {
-            lecturerId,
-            semesterId,
-            recurringAvailability: [],
-          })
+      return mappedRows.map(row => {
+        let wd = String(row.weekday || 'monday').toLowerCase().trim()
+        const dayMap: Record<string, string> = {
+          montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
+          donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
+          mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
+          fri: 'friday', sat: 'saturday', sun: 'sunday',
         }
-        const entry = grouped.get(key)!
-        if (row.weekday && row.startTime && row.endTime) {
-          let wd = String(row.weekday).toLowerCase().trim()
-          const dayMap: Record<string, string> = {
-            montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
-            donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
-            mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
-            fri: 'friday', sat: 'saturday', sun: 'sunday',
-          }
-          wd = dayMap[wd] || wd
-          entry.recurringAvailability.push({
-            weekday: wd as any,
-            startTime: String(row.startTime),
-            endTime: String(row.endTime),
-            label: row.label ? String(row.label) : undefined,
-          })
+        wd = dayMap[wd] || wd
+        return {
+          lecturerId: String(row.lecturerId || '').trim(),
+          weekday: wd as any,
+          startTime: String(row.startTime || '08:00'),
+          endTime: String(row.endTime || '12:00'),
         }
-      }
-      return Array.from(grouped.values())
+      })
     },
   },
 
@@ -1249,12 +1346,12 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
       },
       {
         key: 'weight',
-        label: 'Weight',
+        label: 'Priority Level',
         required: false,
-        type: 'number',
-        description: 'Penalty weight for soft constraints (hard always uses 1)',
+        type: 'string',
+        description: 'Priority for soft constraints: nice-to-have(1), preferred(5), desired(10), almost mandatory(20). Also accepts numeric values.',
         defaultValue: 1,
-        aliases: ['weight', 'gewicht', 'penalty', 'priority'],
+        aliases: ['weight', 'gewicht', 'penalty', 'priority', 'priority_level'],
       },
       {
         key: 'enabled',
@@ -1283,12 +1380,27 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
       },
     ],
     transform: (mappedRows: Record<string, any>[]): SchedulingRule[] => {
+      const WEIGHT_MAP: Record<string, number> = {
+        'nice-to-have': 1,
+        'nice to have': 1,
+        'preferred': 5,
+        'desired': 10,
+        'almost mandatory': 20,
+        'almost-mandatory': 20,
+      }
       return mappedRows.map(row => {
+        let weight: number
+        const rawWeight = String(row.weight ?? '1').trim().toLowerCase()
+        if (WEIGHT_MAP[rawWeight] !== undefined) {
+          weight = WEIGHT_MAP[rawWeight]
+        } else {
+          weight = Number(row.weight) || 1
+        }
         const rule: SchedulingRule = {
           constraintId: String(row.constraintId || ''),
           semesterId: String(row.semesterId || ''),
           category: row.category === 'soft' ? 'soft' : 'hard',
-          weight: Number(row.weight) || 1,
+          weight,
           enabled: parseBoolean(row.enabled ?? true),
           description: row.description ? String(row.description) : undefined,
           appliesTo: row.appliesTo ? parseStringArray(row.appliesTo) : undefined,
@@ -1298,6 +1410,203 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           rule.weight = 1
         }
         return rule
+      })
+    },
+  },
+
+  matrix_competencies: {
+    type: 'matrix_competencies',
+    label: 'Matrix Competencies',
+    icon: 'mdi-view-grid',
+    description: 'Competency matrix axes (x/y) for curriculum mapping.',
+    entityName: 'Matrix Competency',
+    fields: [
+      {
+        key: 'name',
+        label: 'Name',
+        required: true,
+        type: 'string',
+        description: 'Name of the matrix competency axis',
+        aliases: ['name', 'title', 'bezeichnung', 'kompetenz'],
+      },
+      {
+        key: 'category',
+        label: 'Category',
+        required: false,
+        type: 'string',
+        description: 'Category of the competency',
+        aliases: ['category', 'kategorie', 'area', 'group', 'type'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Description of the matrix competency',
+        aliases: ['description', 'beschreibung', 'details', 'desc'],
+      },
+      {
+        key: 'level',
+        label: 'Level',
+        required: false,
+        type: 'string',
+        description: 'Competency level',
+        aliases: ['level', 'niveau', 'stufe', 'kompetenzstufe'],
+      },
+      {
+        key: 'matrixAxis',
+        label: 'Matrix Axis',
+        required: true,
+        type: 'enum',
+        description: 'Whether this competency defines the x-axis or y-axis',
+        options: ['x', 'y'],
+        defaultValue: 'x',
+        aliases: ['matrixaxis', 'matrix_axis', 'axis', 'achse'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): MatrixCompetency[] => {
+      return mappedRows.map(obj => {
+        const mc: MatrixCompetency = {
+          name: String(obj.name || 'Unnamed Matrix Competency'),
+          matrixAxis: obj.matrixAxis === 'y' ? 'y' : 'x',
+        }
+        if (obj.category) mc.category = String(obj.category)
+        if (obj.description) mc.description = String(obj.description)
+        if (obj.level) mc.level = String(obj.level)
+        return mc
+      })
+    },
+  },
+
+  room_availability: {
+    type: 'room_availability',
+    label: 'Room Availability',
+    icon: 'mdi-calendar-clock-outline',
+    description: 'Recurring weekly availability for rooms.',
+    entityName: 'Room Availability',
+    fields: [
+      {
+        key: 'roomId',
+        label: 'Room ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the room',
+        aliases: ['room_id', 'room id', 'room', 'roomid', 'raum', 'raum_id'],
+      },
+      {
+        key: 'weekday',
+        label: 'Weekday',
+        required: true,
+        type: 'enum',
+        description: 'Day of the week for recurring availability',
+        options: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunnday',
+          'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
+        aliases: ['weekday', 'day', 'day_of_week', 'wochentag', 'tag'],
+      },
+      {
+        key: 'startTime',
+        label: 'Start Time',
+        required: true,
+        type: 'string',
+        description: 'Start time of availability slot (HH:MM format)',
+        aliases: ['start_time', 'start', 'von', 'begin', 'beginn'],
+      },
+      {
+        key: 'endTime',
+        label: 'End Time',
+        required: true,
+        type: 'string',
+        description: 'End time of availability slot (HH:MM format)',
+        aliases: ['end_time', 'end', 'bis', 'ende'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): RoomAvailability[] => {
+      return mappedRows.map(row => {
+        let wd = String(row.weekday || 'monday').toLowerCase().trim()
+        const dayMap: Record<string, string> = {
+          montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
+          donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
+          mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
+          fri: 'friday', sat: 'saturday', sun: 'sunday',
+        }
+        wd = dayMap[wd] || wd
+        return {
+          roomId: String(row.roomId || '').trim(),
+          weekday: wd as any,
+          startTime: String(row.startTime || '08:00'),
+          endTime: String(row.endTime || '12:00'),
+        }
+      })
+    },
+  },
+
+  week_lectures: {
+    type: 'week_lectures',
+    label: 'Week Lectures',
+    icon: 'mdi-calendar-week',
+    description: 'Scheduled lecture slots per week for modules.',
+    entityName: 'Week Lecture',
+    fields: [
+      {
+        key: 'moduleIds',
+        label: 'Module IDs',
+        required: true,
+        type: 'string',
+        description: 'Module IDs (comma, semicolon, or pipe separated)',
+        aliases: ['moduleids', 'module_ids', 'module ids', 'moduleid', 'module_id', 'modules', 'modul', 'modul_ids'],
+      },
+      {
+        key: 'roomId',
+        label: 'Room ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the room where the lecture takes place',
+        aliases: ['room_id', 'room id', 'room', 'roomid', 'raum', 'raum_id'],
+      },
+      {
+        key: 'weekday',
+        label: 'Weekday',
+        required: true,
+        type: 'enum',
+        description: 'Day of the week for the lecture',
+        options: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+          'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
+        aliases: ['weekday', 'day', 'day_of_week', 'wochentag', 'tag'],
+      },
+      {
+        key: 'startTime',
+        label: 'Start Time',
+        required: true,
+        type: 'string',
+        description: 'Start time (HH:MM format)',
+        aliases: ['start_time', 'start', 'von', 'begin', 'beginn'],
+      },
+      {
+        key: 'endTime',
+        label: 'End Time',
+        required: true,
+        type: 'string',
+        description: 'End time (HH:MM format)',
+        aliases: ['end_time', 'end', 'bis', 'ende'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): WeekLecture[] => {
+      return mappedRows.map(row => {
+        let wd = String(row.weekday || 'monday').toLowerCase().trim()
+        const dayMap: Record<string, string> = {
+          montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
+          donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
+          mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
+          fri: 'friday', sat: 'saturday', sun: 'sunday',
+        }
+        wd = dayMap[wd] || wd
+        return {
+          moduleIds: parseStringArray(row.moduleIds),
+          roomId: String(row.roomId || '').trim(),
+          weekday: wd as any,
+          startTime: String(row.startTime || '08:00'),
+          endTime: String(row.endTime || '12:00'),
+        }
       })
     },
   },

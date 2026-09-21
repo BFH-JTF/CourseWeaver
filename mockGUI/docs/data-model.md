@@ -34,7 +34,7 @@ docs.
 | `../types/scheduling.ts` | `src/types/scheduling.ts` | HalfDaySlot | `{ date, weekday, period }`, `weekday` limited to thursday/friday/saturday |
 | `../types/instructor.ts` | `src/types/instructor.ts` | Instructor, InstructorAvailability | Teaching staff and their unavailable half-days |
 | `../types/semester.ts` | `src/types/semester.ts` | Semester | Identifier, start/end, holidays, special dates |
-| `../types/taxonomy.ts` | `src/types/taxonomy.ts` | Objective, Competency, Term, ProofOfKnowledge, LearningMaterial | Curriculum taxonomy and assessments |
+| `../types/taxonomy.ts` | `src/types/taxonomy.ts` | Objective, Competency, Term, ProofOfCompetency, LearningMaterial | Curriculum taxonomy and assessments |
 | `../types/location.ts` | `src/types/location.ts` | Location | Building/campus — from CourseWeaver docs, copied as-is |
 | `../types/room.ts` | `src/types/room.ts` | Room | Full room spec (capacity, equipment, availability) — from CourseWeaver docs, copied as-is |
 
@@ -50,7 +50,7 @@ docs.
   - Lesson/Module → Competency
   - Lesson → Term (tagging)
   - Lesson → LearningMaterial
-  - Module/Lesson → ProofOfKnowledge
+  - Module/Lesson → ProofOfCompetency
   - ContactBlock → Instructor (many-to-many)
   - ContactBlock → Room (many-to-many — a room hosts many blocks over a semester)
   - Module → ModuleRelationship → Module (self-referencing)
@@ -98,7 +98,7 @@ Program.mission_statement
   → Competency (+ rationale)          "Program Competency Goal"
     → Objective                        "Operational Learning Objective"
       → ObjectiveMapping (+ learning_activity, stage)
-        → ProofOfKnowledge (+ rubric_id, is_aol_measurement_point)
+        → ProofOfCompetency (+ rubric_id, is_aol_measurement_point)
           → Rubric → RubricCriterion (+ target_level, objective_id)
             → AssessmentResult → RubricCriterionResult
               → ImprovementAction ("Closing the Loop")

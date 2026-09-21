@@ -10,7 +10,7 @@ A department is an academic unit organized around a particular subject or discip
 A program is a structured course of study designed to develop knowledge and skills in a particular academic or professional area. It defines the subjects students must complete, the learning outcomes they must achieve, and the requirements for graduation. Programs may lead to different degrees or include specializations, concentrations, or pathways.
 - id
 - name
-- description
+ description
 - departmentIDs (array)
 - contact
 - URL

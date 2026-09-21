@@ -57,17 +57,27 @@
               />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-text-field
-                v-model.number="form.weight"
-                label="Weight"
-                type="number"
-                min="0"
-                variant="outlined"
-                density="compact"
+              <div class="text-caption text-medium-emphasis mb-1">
+                Priority Level
+              </div>
+              <v-slider
+                v-model="form.weight"
+                :min="1"
+                :max="20"
+                :step="1"
                 :disabled="form.category === 'hard'"
-                :hint="form.category === 'hard' ? 'Hard constraints always use weight 1' : 'Penalty weight for soft preferences'"
-                persistent-hint
-              />
+                :tick-labels="weightTickLabels"
+                :ticks="weightTicks"
+                :color="weightColor"
+                :track-color="'grey-lighten-2'"
+                hide-details
+              >
+                <template #append>
+                  <v-chip size="small" :color="weightColor" variant="tonal" class="ms-2">
+                    {{ weightLabel }}
+                  </v-chip>
+                </template>
+              </v-slider>
             </v-col>
           </v-row>
 
@@ -213,6 +223,32 @@ const categoryOptions = [
   { title: 'Soft (preference/penalty)', value: 'soft' },
 ]
 
+const WEIGHT_LEVELS = [
+  { value: 1, label: 'Nice to have' },
+  { value: 5, label: 'Preferred' },
+  { value: 10, label: 'Desired' },
+  { value: 20, label: 'Almost mandatory' },
+] as const
+
+const weightTicks = WEIGHT_LEVELS.map(l => l.value)
+const weightTickLabels = ['', 'Nice to have', 'Preferred', 'Desired', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Almost mandatory']
+
+const weightLabel = computed(() => {
+  const w = form.value.weight
+  if (w <= 1) return 'Nice to have'
+  if (w <= 5) return 'Preferred'
+  if (w <= 10) return 'Desired'
+  return 'Almost mandatory'
+})
+
+const weightColor = computed(() => {
+  const w = form.value.weight
+  if (w <= 1) return 'success'
+  if (w <= 5) return 'info'
+  if (w <= 10) return 'warning'
+  return 'error'
+})
+
 const formRef = ref()
 
 watch(() => props.modelValue, (isOpen) => {
@@ -241,10 +277,10 @@ watch(() => form.value.constraintId, (newId) => {
       form.value.weight = 1
     } else {
       const defaultWeights: Record<string, number> = {
-        AVOID_FRIDAY_AFTERNOON: 20,
-        AVOID_SATURDAY: 10,
+        AVOID_FRIDAY_AFTERNOON: 10,
+        AVOID_SATURDAY: 5,
         PREFER_MORNING: 5,
-        AVOID_EVENING: 15,
+        AVOID_EVENING: 10,
         MINIMIZE_STUDENT_GAPS: 5,
         PREFER_EARLY_DATES: 1,
       }

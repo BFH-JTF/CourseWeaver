@@ -2,7 +2,7 @@
   <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="650" persistent>
     <v-card>
       <v-card-title class="text-h6 font-weight-bold">
-        {{ isEdit ? 'Edit Proof of Knowledge' : 'Add Proof of Knowledge' }}
+        {{ isEdit ? 'Edit Proof of Competency' : 'Add Proof of Competency' }}
       </v-card-title>
       <v-card-text>
         <v-form ref="formRef" @submit.prevent="submit">
@@ -98,22 +98,22 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { ProofOfKnowledge } from '@/types/proofOfKnowledge'
+import type { ProofOfCompetency } from '@/types/proofOfCompetency'
 
 const props = defineProps<{
   modelValue: boolean
-  proofData?: ProofOfKnowledge
+  proofData?: ProofOfCompetency
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  'save': [proof: ProofOfKnowledge]
+  'save': [proof: ProofOfCompetency]
 }>()
 
 const isEdit = computed(() => !!props.proofData?.id)
 
 const formRef = ref()
-const proof = ref<ProofOfKnowledge>(emptyProof())
+const proof = ref<ProofOfCompetency>(emptyProof())
 
 const assessmentTypeOptions = [
   { title: 'Written', value: 'written' },
@@ -125,7 +125,7 @@ const assignmentScopeOptions = [
   { title: 'Group Assignment', value: 'group' },
 ]
 
-function emptyProof(): ProofOfKnowledge {
+function emptyProof(): ProofOfCompetency {
   return {
     name: '',
     description: '',
@@ -134,6 +134,7 @@ function emptyProof(): ProofOfKnowledge {
     freeText: false,
     assignmentScope: 'individual',
     durationMinutes: undefined,
+    competencyIds: [],
   }
 }
 

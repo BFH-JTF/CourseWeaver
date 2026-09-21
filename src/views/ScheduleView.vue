@@ -77,28 +77,8 @@
             hover
             items-per-page="15"
           >
-            <template #item.recurringAvailability="{ item }">
-              <div class="d-flex flex-wrap ga-1">
-                <v-chip
-                  v-for="slot in (item.recurringAvailability || []).slice(0, 5)"
-                  :key="slot.id || slot.weekday + slot.startTime"
-                  size="small"
-                  variant="tonal"
-                  color="primary"
-                >
-                  {{ formatWeekday(slot.weekday) }} {{ slot.startTime }}–{{ slot.endTime }}
-                  <span v-if="slot.label" class="text-caption ms-1">({{ slot.label }})</span>
-                </v-chip>
-                <v-chip
-                  v-if="(item.recurringAvailability || []).length > 5"
-                  size="small"
-                  variant="tonal"
-                  color="default"
-                >
-                  +{{ item.recurringAvailability.length - 5 }} more
-                </v-chip>
-                <span v-if="!item.recurringAvailability?.length" class="text-medium-emphasis text-caption">No slots defined</span>
-              </div>
+            <template #item.weekday="{ item }">
+              {{ formatWeekday(item.weekday) }}
             </template>
             <template #item.actions="{ item }">
               <v-btn icon variant="text" size="small" @click="openEditAvailability(item)">
@@ -176,7 +156,11 @@
               </v-icon>
             </template>
             <template #item.weight="{ item }">
-              <span v-if="item.category === 'soft'" class="font-weight-medium">{{ item.weight }}</span>
+              <span v-if="item.category === 'soft'" class="font-weight-medium">
+                <v-chip size="small" :color="getWeightColor(item.weight)" variant="tonal">
+                  {{ getWeightLabel(item.weight) }}
+                </v-chip>
+              </span>
               <span v-else class="text-medium-emphasis">—</span>
             </template>
             <template #item.appliesTo="{ item }">
@@ -223,7 +207,6 @@
       v-model="availabilityDialogOpen"
       :availability-data="editingAvailability"
       :current-user-id="currentUserId"
-      :current-semester-id="selectedSemesterId"
       @save="handleSaveAvailability"
     />
 
@@ -291,7 +274,7 @@ const ruleSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'constr
 
 const semesterItems = computed(() => {
   const items = semesters.value.map(s => ({
-    title: s.identifier,
+    title: s.name || s.identifier,
     value: s._id || s.id || '',
     subtitle: `${s.startDate} – ${s.endDate}`,
   }))
@@ -303,7 +286,7 @@ const semesterItems = computed(() => {
 
 const semesterAvailabilities = computed(() => {
   if (!selectedSemesterId.value) return []
-  return availabilities.value.filter(a => a.semesterId === selectedSemesterId.value)
+  return availabilities.value.filter(a => a.lecturerId)
 })
 
 const semesterRules = computed(() => {
@@ -312,7 +295,9 @@ const semesterRules = computed(() => {
 })
 
 const availabilityHeaders = [
-  { title: 'Weekly Availability', key: 'recurringAvailability', sortable: false },
+  { title: 'Weekday', key: 'weekday', sortable: true },
+  { title: 'Start', key: 'startTime', sortable: true },
+  { title: 'End', key: 'endTime', sortable: true },
   { title: 'Actions', key: 'actions', sortable: false, align: 'end' as const },
 ]
 
@@ -320,7 +305,7 @@ const ruleHeaders = [
   { title: 'Rule ID', key: 'constraintId', sortable: true },
   { title: 'Category', key: 'category', sortable: true },
   { title: 'Enabled', key: 'enabled', sortable: true },
-  { title: 'Weight', key: 'weight', sortable: true },
+  { title: 'Priority', key: 'weight', sortable: true },
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Applies To', key: 'appliesTo', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false, align: 'end' as const },
@@ -330,9 +315,8 @@ const filteredAvailabilities = computed(() => {
   const q = availabilitySearch.value?.toLowerCase() || ''
   if (!q) return semesterAvailabilities.value
   return semesterAvailabilities.value.filter(a => {
-    const slots = (a.recurringAvailability || []).map(s => WEEKDAY_LABELS[s.weekday as Weekday]?.toLowerCase() || '').join(' ')
-    const labels = (a.recurringAvailability || []).map(s => (s.label || '').toLowerCase()).join(' ')
-    return slots.includes(q) || labels.includes(q)
+    const weekday = WEEKDAY_LABELS[a.weekday as Weekday]?.toLowerCase() || ''
+    return weekday.includes(q) || a.startTime.toLowerCase().includes(q) || a.endTime.toLowerCase().includes(q)
   })
 })
 
@@ -349,6 +333,20 @@ const filteredRules = computed(() => {
 
 function formatWeekday(wd: Weekday): string {
   return WEEKDAY_LABELS[wd] || wd
+}
+
+function getWeightLabel(weight: number): string {
+  if (weight <= 1) return 'Nice to have'
+  if (weight <= 5) return 'Preferred'
+  if (weight <= 10) return 'Desired'
+  return 'Almost mandatory'
+}
+
+function getWeightColor(weight: number): string {
+  if (weight <= 1) return 'success'
+  if (weight <= 5) return 'info'
+  if (weight <= 10) return 'warning'
+  return 'error'
 }
 
 function handleSemesterChange() {

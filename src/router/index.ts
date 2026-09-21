@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useOidc } from '@/composables/useOidc'
 import { useAuthStore } from '@/stores/auth'
 
-const AppLayout = () => import('@/layouts/AppLayout.vue')
+import AppLayout from '@/layouts/AppLayout.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

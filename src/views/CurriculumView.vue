@@ -348,8 +348,8 @@
           <template #item.code="{ item }">
             {{ item.code || '-' }}
           </template>
-          <template #item.year="{ item }">
-            {{ item.year ?? '-' }}
+          <template #item.startingYear="{ item }">
+            {{ item.startingYear ?? item.year ?? '-' }}
           </template>
           <template #item.size="{ item }">
             {{ item.size ?? '-' }}
@@ -431,7 +431,7 @@
           items-per-page="15"
         >
           <template #item.identifier="{ item }">
-            <span class="font-weight-medium">{{ item.identifier }}</span>
+            <span class="font-weight-medium">{{ item.name || item.identifier }}</span>
           </template>
           <template #item.startDate="{ item }">
             {{ formatDate(item.startDate) }}
@@ -702,7 +702,7 @@ const clsHeaders = [
   { title: 'Code', key: 'code', sortable: true },
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Programs', key: 'programIds', sortable: false },
-  { title: 'Year', key: 'year', sortable: true },
+  { title: 'Starting Year', key: 'startingYear', sortable: true },
   { title: 'Size', key: 'size', sortable: true },
   { title: 'Semester', key: 'semesterId', sortable: false },
   { title: 'Description', key: 'description', sortable: true },
@@ -711,7 +711,7 @@ const clsHeaders = [
 ]
 
 const semHeaders = [
-  { title: 'Identifier', key: 'identifier', sortable: true },
+  { title: 'Name', key: 'name', sortable: true },
   { title: 'Start', key: 'startDate', sortable: true },
   { title: 'End', key: 'endDate', sortable: true },
   { title: 'Holidays', key: 'holidays', sortable: false },
@@ -759,7 +759,7 @@ function getClassProgramNames(cls: ClassEntity): string[] {
 function getSemesterName(semesterId: string | undefined): string {
   if (!semesterId) return ''
   const sem = semesterList.value.find(s => (s._id || s.id) === semesterId)
-  return sem ? sem.identifier : semesterId
+  return sem ? (sem.name ?? sem.identifier ?? '') : semesterId
 }
 
 const filteredDepartments = computed(() => {
@@ -822,7 +822,7 @@ const filteredSemesters = computed(() => {
   if (!semSearch.value) return semesterList.value
   const q = semSearch.value.toLowerCase()
   return semesterList.value.filter(s =>
-    s.identifier.toLowerCase().includes(q)
+    (s.name ?? s.identifier ?? '').toLowerCase().includes(q)
   )
 })
 
@@ -1017,7 +1017,7 @@ async function handleSemesterSave(sem: Semester) {
 function confirmDeleteSemester(sem: Semester) {
   deleteKind = 'semester'
   deleteId = sem._id || sem.id || ''
-  deleteTargetName.value = sem.identifier
+  deleteTargetName.value = sem.name ?? sem.identifier ?? 'Unnamed Semester'
   deleteDialogOpen.value = true
 }
 

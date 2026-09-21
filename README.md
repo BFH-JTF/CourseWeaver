@@ -35,7 +35,7 @@ Designing, maintaining, and scheduling modern higher education curricula involve
 
 CourseWeaver provides an integrated solution tailored to university workflows:
 - **Academic Hierarchy**: Structures educational offerings across Departments, Programs, Degrees, Modules, and Lessons.
-- **Outcome-Based Education**: Links course lessons directly to learning objectives, competencies, and proofs of knowledge.
+- **Outcome-Based Education**: Links course lessons directly to learning objectives, competencies, and proofs of competency.
 - **Infrastructure-Aware Scheduling**: Matches course requirements (room type, capacity, AV equipment, accessibility) with available campus facilities.
 - **Curriculum Versioning**: Supports curriculum updates without disrupting existing student cohorts.
 
@@ -53,8 +53,8 @@ CourseWeaver provides an integrated solution tailored to university workflows:
 - **Multi-Level Taxonomy**: Define and organize standard measuring frameworks:
   - **Competencies**: High-level program learning goals (e.g., analytical thinking, leadership).
   - **Learning Objectives**: Specific, measurable knowledge and skills acquired in modules/lessons.
-  - **Proofs of Knowledge**: Assessment methods (exams, assignments, presentations) verifying competency acquisition.
-- **CRUD & CSV Import**: Add, edit, delete, and bulk-import competencies and proofs of knowledge.
+  - **Proofs of Competency**: Assessment methods (exams, assignments, presentations) verifying competency acquisition.
+- **CRUD & CSV Import**: Add, edit, delete, and bulk-import competencies and proofs of competency.
 
 ### Module Management & Relationship Constraints
 - **Detailed Module Profiles**: Track module codes, ECTS credit points, contact hours, teaching hours, and self-study hours.
@@ -128,7 +128,6 @@ CourseWeaver/
 │   ├── datastructure.locations.md   # Location JSON & CSV specifications
 │   ├── datastructure.rooms.md       # Classroom & equipment specifications
 │   ├── datastructure.student_skills.md # Skill categories and proficiency levels
-│   └── starting_desc.md             # Project requirements and domain comparison
 ├── index.html                   # HTML entry point
 ├── package.json                 # Project dependencies and scripts
 ├── server/                      # Backend Express REST API
@@ -153,7 +152,7 @@ CourseWeaver/
 │   │   ├── LocationFormDialog.vue         # Location add/edit dialog
 │   │   ├── ModuleFormDialog.vue           # Module add/edit dialog (with constraints)
 │   │   ├── ProgramFormDialog.vue          # Program add/edit dialog
-│   │   ├── ProofOfKnowledgeFormDialog.vue  # Proof of knowledge add/edit dialog
+│   │   ├── ProofOfCompetencyFormDialog.vue # Proof of competency add/edit dialog
 │   │   └── RoomFormDialog.vue             # Room add/edit dialog
 │   ├── composables/             # Shared business logic and API integrations
 │   │   ├── useCompetencies.ts             # Competency CRUD operations
@@ -166,7 +165,7 @@ CourseWeaver/
 │   │   ├── useOidc.ts                     # OpenID Connect authentication
 │   │   ├── usePostgres.ts                 # PostgreSQL JSONB REST API client & settings
 │   │   ├── usePrograms.ts                 # Program CRUD operations
-│   │   ├── useProofsOfKnowledge.ts        # Proof of knowledge CRUD operations
+│   │   ├── useProofsOfCompetency.ts       # Proof of competency CRUD operations
 │   │   ├── useRooms.ts                    # Room CRUD operations
 │   │   ├── useTimetableCpSat.ts           # Timetable constraint solver
 │   │   └── useTimetableServer.ts          # Timetable server integration
@@ -188,7 +187,7 @@ CourseWeaver/
 │   │   ├── location.ts                     # Location entity definitions
 │   │   ├── module.ts                       # Module re-export
 │   │   ├── program.ts                      # Program re-export
-│   │   ├── proofOfKnowledge.ts             # Proof of knowledge types
+│   │   ├── proofOfCompetency.ts            # Proof of competency types
 │   │   └── room.ts                         # Room, equipment & availability types
 │   ├── utils/                   # Utility functions
 │   │   ├── curriculumNormalize.ts          # Normalize field aliases on curriculum entities
@@ -206,7 +205,7 @@ CourseWeaver/
 │       ├── RoomsView.vue                 # Rooms and locations management view
 │       ├── ScheduleView.vue              # Semester schedule and lecturer assignments
 │       ├── SettingsView.vue             # PostgreSQL connection and OIDC provider settings
-│       └── TaxonomyView.vue              # Competencies & proofs of knowledge management
+│       └── TaxonomyView.vue              # Competencies & proofs of competency management
 ├── tsconfig.app.json            # Frontend TypeScript compiler options
 ├── tsconfig.json                # Base TypeScript compiler options
 ├── tsconfig.node.json           # Vite/Node TypeScript compiler options
@@ -325,15 +324,6 @@ docker compose up postgres doc-pouch -d
 
 ---
 
-## Data Structures & Documentation
-
-For in-depth domain models, schemas, and export formats, refer to the documents in [`docs/`](./docs/):
-
-- **[`docs/starting_desc.md`](./docs/starting_desc.md)**: High-level requirements, functional vision, and comparison with the [Ilios](https://github.com/ilios) curriculum system.
-- **[`docs/datastructure.curriculum.md`](./docs/datastructure.curriculum.md)**: Conceptual definitions for Departments, Study Programs, Degrees, and Modules.
-- **[`docs/datastructure.locations.md`](./docs/datastructure.locations.md)**: JSON structure and CSV header format for Location entities.
-- **[`docs/datastructure.rooms.md`](./docs/datastructure.rooms.md)**: JSON specification and CSV column definitions for classrooms, layout configurations, AV equipment, connectivity, and accessibility features.
-
 ### PostgreSQL JSONB Entity Tables
 
 Academic records and institutional resources are stored in PostgreSQL tables with JSONB document payloads:
@@ -351,9 +341,9 @@ Academic records and institutional resources are stored in PostgreSQL tables wit
 | `ROOM` | `rooms` | JSONB | Classrooms, capacity, layout, equipment |
 | `LOCATION` | `locations` | JSONB | Campuses, buildings, addresses, geo-coordinates |
 | `LECTURER` | `lecturers` | JSONB | Faculty profiles and availability slots |
-| `TAXONOMY` | `taxonomy_items` | JSONB | Competencies, learning objectives, proofs of knowledge |
+| `TAXONOMY` | `taxonomy_items` | JSONB | Competencies, learning objectives, proofs of competency |
 | `COMPETENCY` | `competencies` | JSONB | Competencies and skill taxonomy |
-| `PROOF_OF_KNOWLEDGE` | `proofs_of_knowledge` | JSONB | Assessment methods and examination formats |
+| `PROOF_OF_COMPETENCY` | `proofs_of_competency` | JSONB | Assessment methods and examination formats |
 
 ---
 

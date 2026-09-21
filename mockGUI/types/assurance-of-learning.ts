@@ -9,7 +9,7 @@ export interface RubricCriterionResult {
 
 export interface AssessmentResult {
   _id?: string
-  proof_of_knowledge_id: string
+  proof_of_competency_id: string
   semester_id: string
   criterion_results: RubricCriterionResult[]
   notes?: string

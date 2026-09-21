@@ -983,7 +983,7 @@ components:
           type: array
           items:
             type: string
-        proofOfKnowledgeIds:
+        proofOfCompetencyIds:
           type: array
           items:
             type: string
@@ -1071,7 +1071,7 @@ components:
           enum:
             - competency
             - learningObjective
-            - proofOfKnowledge
+            - proofOfCompetency
           example: "competency"
         parentTaxonomyItemId:
           type: string

@@ -1,17 +1,12 @@
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
-import type { LecturerAvailability, RecurringAvailability } from '@/types/schedule'
-
-export const emptyRecurringAvailability: RecurringAvailability = {
-  weekday: 'monday',
-  startTime: '08:00',
-  endTime: '12:00',
-}
+import type { LecturerAvailability } from '@/types/schedule'
 
 export const emptyLecturerAvailability: LecturerAvailability = {
   lecturerId: '',
-  semesterId: '',
-  recurringAvailability: [],
+  weekday: 'monday',
+  startTime: '08:00',
+  endTime: '12:00',
 }
 
 export function useAvailability() {
@@ -36,11 +31,7 @@ export function useAvailability() {
     loading.value = true
     error.value = null
     try {
-      const normalized: LecturerAvailability = {
-        ...avail,
-        recurringAvailability: avail.recurringAvailability.map(r => ({ ...r, id: r.id || undefined })),
-      }
-      const created = await createEntity<LecturerAvailability>(EntityTables.LECTURER_AVAILABILITY, normalized)
+      const created = await createEntity<LecturerAvailability>(EntityTables.LECTURER_AVAILABILITY, avail)
       availabilities.value.push(created)
     } catch (e: any) {
       error.value = e.message
@@ -55,13 +46,9 @@ export function useAvailability() {
     loading.value = true
     error.value = null
     try {
-      const normalized: LecturerAvailability = {
-        ...avail,
-        recurringAvailability: avail.recurringAvailability.map(r => ({ ...r, id: r.id || undefined })),
-      }
-      await updateDbEntity(EntityTables.LECTURER_AVAILABILITY, id, normalized)
+      await updateDbEntity(EntityTables.LECTURER_AVAILABILITY, id, avail)
       const idx = availabilities.value.findIndex(a => (a._id || a.id) === id)
-      if (idx !== -1) availabilities.value[idx] = { ...normalized, _id: id, id }
+      if (idx !== -1) availabilities.value[idx] = { ...avail, _id: id, id }
     } catch (e: any) {
       error.value = e.message
     } finally {

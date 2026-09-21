@@ -3,7 +3,7 @@ import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Semester } from '@/stores/curriculum'
 
 export const emptySemester: Semester = {
-  identifier: '',
+  name: '',
   startDate: '',
   endDate: '',
 }

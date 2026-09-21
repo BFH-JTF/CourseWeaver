@@ -17,11 +17,11 @@
       <v-card-text class="pa-4 pa-sm-6">
         <v-form ref="formRef" @submit.prevent="submit">
           <v-text-field
-            v-model="form.identifier"
-            label="Identifier *"
+            v-model="form.name"
+            label="Name *"
             variant="outlined"
             density="compact"
-            :rules="[v => !!v || 'Identifier is required']"
+            :rules="[v => !!v || 'Name is required']"
             placeholder="e.g. HS2026, FS2027"
             class="mb-3"
           />
@@ -45,6 +45,38 @@
             :rules="[v => !!v || 'End date is required', v => !form.startDate || v >= form.startDate || 'End date must be after start date']"
             class="mb-3"
           />
+
+          <v-text-field
+            v-model="form.code"
+            label="Code"
+            variant="outlined"
+            density="compact"
+            placeholder="e.g. HS2026"
+            class="mb-3"
+          />
+
+          <div v-if="form.daysOff && form.daysOff.length" class="mb-3">
+            <h3 class="text-subtitle-2 font-weight-bold mb-2">Days Off</h3>
+            <div v-for="(_, idx) in form.daysOff" :key="idx" class="d-flex align-center ga-2 mb-2">
+              <v-text-field
+                v-model="form.daysOff![idx]"
+                label="Date"
+                type="date"
+                variant="outlined"
+                density="compact"
+                hide-details
+                style="max-width: 200px"
+              />
+              <v-btn icon variant="text" size="small" color="error" @click="form.daysOff!.splice(idx, 1)">
+                <v-icon>mdi-delete</v-icon>
+              </v-btn>
+            </div>
+          </div>
+          <v-btn variant="tonal" prepend-icon="mdi-plus" size="small" @click="addDayOff">
+            Add Day Off
+          </v-btn>
+
+          <v-divider class="my-4" />
 
           <div v-if="form.holidays && form.holidays.length" class="mb-3">
             <h3 class="text-subtitle-2 font-weight-bold mb-2">Holidays</h3>
@@ -169,6 +201,11 @@ watch(() => props.modelValue, (isOpen) => {
     }
   }
 })
+
+function addDayOff() {
+  if (!form.value.daysOff) form.value.daysOff = []
+  form.value.daysOff.push('')
+}
 
 function addHoliday() {
   if (!form.value.holidays) form.value.holidays = []

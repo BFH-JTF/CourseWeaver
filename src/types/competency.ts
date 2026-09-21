@@ -10,6 +10,9 @@ export interface Competency extends AclInfo {
   topic?: string
   description?: string
   level?: SkillLevel | string
+  matrixDefined?: boolean
+  xMatrixCompetencyId?: string
+  yMatrixCompetencyId?: string
 }
 
 export type CompetencyExport = Competency[]

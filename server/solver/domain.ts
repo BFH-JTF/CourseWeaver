@@ -12,12 +12,36 @@ export interface Program {
 export interface Instructor {
   id: string
   name: string
+  userId?: string
+  moduleIds?: string[]
 }
 
 export interface Room {
   id: string
   name: string
   capacity: number
+}
+
+export interface RoomAvailability {
+  id: string
+  roomId: string
+  weekday: string
+  startTime: string
+  endTime: string
+}
+
+export interface WeekLecture {
+  id: string
+  moduleIds: string[]
+  roomId: string
+  weekday: string
+  startTime: string
+  endTime: string
+}
+
+export interface SemesterSchedule {
+  id: string
+  semesterId: string
 }
 
 export interface OnCampusDay {
@@ -45,4 +69,24 @@ export interface Module {
   expectedStudents: number
   instructors: string[] // Instructor.id[]
   restrictions: Restriction[]
+  competencyIds?: string[]
+  proofOfCompetencyIds?: string[]
+}
+
+export interface Semester {
+  id: string
+  name: string
+  code?: string
+  startDate: string
+  endDate: string
+  daysOff?: string[]
+  curriculumVersionId?: string
+  schedulingRulesId?: string
+}
+
+export interface CurriculumVersion {
+  id: string
+  name: string
+  versionNumber: number
+  programId?: string
 }

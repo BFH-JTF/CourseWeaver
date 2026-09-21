@@ -13,12 +13,16 @@ export function useCsvImport() {
     competencies: EntityTables.COMPETENCY,
     modules: EntityTables.MODULE,
     study_programs: EntityTables.STUDY_PROGRAM,
+    proofs_of_competency: EntityTables.PROOF_OF_COMPETENCY,
     proofs_of_knowledge: EntityTables.PROOF_OF_KNOWLEDGE,
     departments: EntityTables.DEPARTMENT,
     programs: EntityTables.PROGRAM,
     degrees: EntityTables.DEGREE,
     availability: EntityTables.LECTURER_AVAILABILITY,
     scheduling_rules: EntityTables.SCHEDULING_RULE,
+    room_availability: EntityTables.ROOM_AVAILABILITY,
+    week_lectures: EntityTables.WEEK_LECTURE,
+    matrix_competencies: EntityTables.MATRIX_COMPETENCY,
   }
 
   async function saveImportedData(type: ImportType, items: any[]): Promise<number> {

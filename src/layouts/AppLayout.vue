@@ -46,7 +46,6 @@
           :to="item.to"
           :prepend-icon="item.icon"
           :title="item.title"
-          @click="drawer = false"
         />
       </v-list>
     </v-navigation-drawer>
@@ -58,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 
@@ -73,7 +72,6 @@ const navItems = computed(() => {
     { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/' },
     { title: 'Curriculum', icon: 'mdi-book-education', to: '/curriculum' },
     { title: 'Taxonomy', icon: 'mdi-sitemap', to: '/taxonomy' },
-
     { title: 'Schedule', icon: 'mdi-calendar-clock', to: '/schedule' },
     { title: 'Rooms & Locations', icon: 'mdi-door-open', to: '/rooms' },
     { title: 'Conflicts', icon: 'mdi-alert-circle', to: '/conflicts' },
@@ -83,6 +81,18 @@ const navItems = computed(() => {
     items.push({ title: 'Admin', icon: 'mdi-shield-account', to: '/admin' })
   }
   return items
+})
+
+function closeDrawerAfterNavigation() {
+  drawer.value = false
+}
+
+onMounted(() => {
+  router.afterEach(closeDrawerAfterNavigation)
+})
+
+onUnmounted(() => {
+  router.afterEach(() => {})
 })
 
 async function handleLogout() {

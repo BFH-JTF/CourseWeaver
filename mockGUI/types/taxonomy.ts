@@ -34,7 +34,7 @@ export interface ObjectiveMapping {
   // The concrete exercise/activity through which the objective is practiced
   // here — constructive alignment needs this, not just the stage label.
   learning_activity?: string
-  assessment_ids?: string[] // ProofOfKnowledge items that assess THIS objective HERE
+  assessment_ids?: string[] // ProofOfCompetency items that assess THIS objective HERE
 }
 
 export interface Competency {
@@ -52,7 +52,7 @@ export interface Term {
   category?: string
 }
 
-export type ProofOfKnowledgeType = 'exam' | 'assignment' | 'presentation' | 'project' | 'other'
+export type ProofOfCompetencyType = 'exam' | 'assignment' | 'presentation' | 'project' | 'other'
 
 // A module grade is not AoL evidence by itself — AACSB expects results at
 // the level of individual rubric criteria, each tied to a specific objective.
@@ -70,10 +70,10 @@ export interface Rubric {
   criteria: RubricCriterion[]
 }
 
-export interface ProofOfKnowledge {
+export interface ProofOfCompetency {
   _id?: string
   title: string
-  type?: ProofOfKnowledgeType
+  type?: ProofOfCompetencyType
   description?: string
   // Which objectives this item actually, observably assesses. A module exam
   // is not automatically a proof for every objective taught in that module —

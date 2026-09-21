@@ -10,6 +10,7 @@ export interface Department extends AclInfo {
   description?: string
   contact?: string
   url?: string
+  /** @deprecated Use url instead */
   URL?: string
 }
 
@@ -20,10 +21,12 @@ export interface Program extends AclInfo {
   _id?: string
   name: string
   description?: string
-  departmentIDs?: string[]
   departmentIds?: string[]
+  /** @deprecated Use departmentIds instead */
+  departmentIDs?: string[]
   contact?: string
   url?: string
+  /** @deprecated Use url instead */
   URL?: string
 }
 
@@ -34,11 +37,14 @@ export interface Degree extends AclInfo {
   _id?: string
   name: string
   description?: string
-  ProgramIDs?: string[]
-  programIDs?: string[]
   programIds?: string[]
+  /** @deprecated Use programIds instead */
+  ProgramIDs?: string[]
+  /** @deprecated Use programIds instead */
+  programIDs?: string[]
   contact?: string
   url?: string
+  /** @deprecated Use url instead */
   URL?: string
 }
 
@@ -54,11 +60,14 @@ export interface Module extends AclInfo {
   _id?: string
   name: string
   description?: string
-  DegreeIDs?: string[]
-  degreeIDs?: string[]
   degreeIds?: string[]
+  /** @deprecated Use degreeIds instead */
+  DegreeIDs?: string[]
+  /** @deprecated Use degreeIds instead */
+  degreeIDs?: string[]
   contact?: string
   url?: string
+  /** @deprecated Use url instead */
   URL?: string
   code?: string
   creditPoints?: number
@@ -68,6 +77,8 @@ export interface Module extends AclInfo {
   constraints?: ModuleConstraint[]
   curriculumVersionId?: string
   studyProgramIds?: string[]
+  competencyIds?: string[]
+  proofOfCompetencyIds?: string[]
 }
 
 export type ModuleExport = Module[]

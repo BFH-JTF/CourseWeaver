@@ -5,6 +5,10 @@ import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
 import type { Department, Program, Degree, Module, ModuleConstraint } from '@/types/curriculum'
 import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
+import type { MatrixCompetency } from '@/types/matrixCompetency'
+import type { RoomAvailability } from '@/types/roomAvailability'
+import type { WeekLecture } from '@/types/weekLecture'
+import type { SemesterSchedule } from '@/types/semesterSchedule'
 
 export type { Department, Program, Degree, Module, ModuleConstraint }
 export type { LecturerAvailability, SchedulingRule }
@@ -14,7 +18,10 @@ export interface CurriculumVersion {
   id?: string
   name: string
   description?: string
-  version: number
+  versionNumber: number
+  /** @deprecated Use versionNumber instead */
+  version?: number
+  programId?: string
   parentId?: string
   createdAt?: string
 }
@@ -28,19 +35,28 @@ export interface StudyProgram {
   version?: number
   curriculumVersionId?: string
   departmentIDs?: string[]
+  departmentIds?: string[]
   contact?: string
   url?: string
+  /** @deprecated Use url instead */
   URL?: string
 }
 
 export interface Semester {
   _id?: string
   id?: string
-  identifier: string
+  name?: string
+  /** @deprecated Use name instead */
+  identifier?: string
+  code?: string
   startDate: string
   endDate: string
+  daysOff?: string[]
+  /** @deprecated Use daysOff instead */
   holidays?: DateRange[]
   specialDates?: DateRange[]
+  curriculumVersionId?: string
+  schedulingRulesId?: string
 }
 
 export interface DateRange {
@@ -56,6 +72,8 @@ export interface Lesson {
   name: string
   description?: string
   taxonomyItemIds?: string[]
+  proofOfCompetencyIds?: string[]
+  /** @deprecated Use proofOfCompetencyIds instead */
   proofOfKnowledgeIds?: string[]
   scheduledSessions?: ScheduledSession[]
 }
@@ -72,8 +90,11 @@ export interface Lecturer {
   _id?: string
   id?: string
   name: string
+  userId?: string
   email?: string
   department?: string
+  moduleIds?: string[]
+  /** @deprecated Use flat LecturerAvailability entities instead */
   availability?: AvailabilitySlot[]
 }
 
@@ -88,7 +109,8 @@ export interface TaxonomyItem {
   id?: string
   name: string
   description?: string
-  category: 'competency' | 'learningObjective' | 'proofOfKnowledge'
+  category: 'competency' | 'learningObjective' | 'proofOfCompetency'
+  /** @deprecated Use 'proofOfCompetency' instead */
   parentTaxonomyItemId?: string
 }
 
@@ -109,6 +131,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const lecturerAvailabilities = ref<LecturerAvailability[]>([])
   const schedulingRules = ref<SchedulingRule[]>([])
   const taxonomyItems = ref<TaxonomyItem[]>([])
+  const matrixCompetencies = ref<MatrixCompetency[]>([])
+  const roomAvailabilities = ref<RoomAvailability[]>([])
+  const weekLectures = ref<WeekLecture[]>([])
+  const semesterSchedules = ref<SemesterSchedule[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -280,6 +306,54 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
+  async function fetchMatrixCompetencies() {
+    loading.value = true
+    error.value = null
+    try {
+      matrixCompetencies.value = await fetchEntities<MatrixCompetency>(EntityTables.MATRIX_COMPETENCY)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchRoomAvailabilities() {
+    loading.value = true
+    error.value = null
+    try {
+      roomAvailabilities.value = await fetchEntities<RoomAvailability>(EntityTables.ROOM_AVAILABILITY)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchWeekLectures() {
+    loading.value = true
+    error.value = null
+    try {
+      weekLectures.value = await fetchEntities<WeekLecture>(EntityTables.WEEK_LECTURE)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchSemesterSchedules() {
+    loading.value = true
+    error.value = null
+    try {
+      semesterSchedules.value = await fetchEntities<SemesterSchedule>(EntityTables.SEMESTER_SCHEDULE)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     curriculumVersions,
     studyPrograms,
@@ -295,6 +369,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     lecturerAvailabilities,
     schedulingRules,
     taxonomyItems,
+    matrixCompetencies,
+    roomAvailabilities,
+    weekLectures,
+    semesterSchedules,
     loading,
     error,
     fetchCurriculumVersions,
@@ -311,5 +389,9 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     fetchLecturerAvailabilities,
     fetchSchedulingRules,
     fetchTaxonomyItems,
+    fetchMatrixCompetencies,
+    fetchRoomAvailabilities,
+    fetchWeekLectures,
+    fetchSemesterSchedules,
   }
 })
