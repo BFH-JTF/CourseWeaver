@@ -1,5 +1,7 @@
 # Rules
 
+Rules are stored as `SchedulingRule` entities per semester. Each rule references a constraint from the external constraint catalog by its stable `ruleType` ID and scopes to entity IDs via `appliesTo`.
+
 ## Structural Rules (not shown since unchangable)
 Resource-conflict and feasibility rules that are true regardless of the specific school:
 

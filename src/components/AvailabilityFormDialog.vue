@@ -17,6 +17,17 @@
       <v-card-text class="pa-4 pa-sm-6">
         <v-form ref="formRef" @submit.prevent="submit">
           <v-select
+            v-model="form.weekId"
+            :items="weekItems"
+            item-title="title"
+            item-value="value"
+            label="Week"
+            variant="outlined"
+            density="compact"
+            clearable
+            class="mb-2"
+          />
+          <v-select
             v-model="form.weekday"
             :items="weekdayItems"
             item-title="title"
@@ -60,12 +71,14 @@
 import { ref, computed, watch } from 'vue'
 import type { LecturerAvailability } from '@/types/schedule'
 import { WEEKDAY_LABELS, WEEKDAY_OPTIONS } from '@/types/schedule'
+import type { Week } from '@/types/week'
 import { emptyLecturerAvailability } from '@/composables/useAvailability'
 
 const props = defineProps<{
   modelValue: boolean
   availabilityData: LecturerAvailability | null
   currentUserId: string
+  weeks: Week[]
 }>()
 
 const emit = defineEmits<{
@@ -80,6 +93,12 @@ const form = ref<LecturerAvailability>(JSON.parse(JSON.stringify(emptyLecturerAv
 const formRef = ref()
 
 const weekdayItems = WEEKDAY_OPTIONS.map(wd => ({ title: WEEKDAY_LABELS[wd], value: wd }))
+
+const weekItems = computed(() =>
+  (props.weeks || [])
+    .map(w => ({ title: `Week ${w.semesterWeek} (${w.startDate}–${w.endDate})`, value: w.id || w._id }))
+    .filter(w => w.value)
+)
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {

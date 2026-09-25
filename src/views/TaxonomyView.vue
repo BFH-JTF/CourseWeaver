@@ -103,24 +103,20 @@
           hover
           items-per-page="15"
         >
-          <template #item.assessmentType="{ item }">
-            <v-chip
-              v-if="item.assessmentType"
-              size="small"
-              :color="item.assessmentType === 'written' ? 'primary' : 'secondary'"
-              variant="tonal"
-            >
-              {{ item.assessmentType === 'written' ? 'Written' : item.assessmentType === 'oral' ? 'Oral' : item.assessmentType }}
-            </v-chip>
+          <template #item.answerFormats="{ item }">
+            <template v-if="item.answerFormats && item.answerFormats.length">
+              <v-chip
+                v-for="f in item.answerFormats"
+                :key="f"
+                size="x-small"
+                :color="f === 'written' ? 'primary' : f === 'oral' ? 'secondary' : f === 'multipleChoice' ? 'success' : 'info'"
+                variant="tonal"
+                class="mr-1 mb-1"
+              >
+                {{ formatAnswerFormat(f) }}
+              </v-chip>
+            </template>
             <span v-else class="text-medium-emphasis">-</span>
-          </template>
-          <template #item.multipleChoice="{ item }">
-            <v-chip v-if="item.multipleChoice" size="x-small" color="success" variant="tonal">Yes</v-chip>
-            <span v-else class="text-medium-emphasis text-caption">No</span>
-          </template>
-          <template #item.freeText="{ item }">
-            <v-chip v-if="item.freeText" size="x-small" color="info" variant="tonal">Yes</v-chip>
-            <span v-else class="text-medium-emphasis text-caption">No</span>
           </template>
           <template #item.assignmentScope="{ item }">
             <v-chip
@@ -276,14 +272,22 @@ const competencyHeaders = [
 
 const proofHeaders = [
   { title: 'Name', key: 'name', sortable: true },
-  { title: 'Format', key: 'assessmentType', sortable: true, width: '120px' },
-  { title: 'Multiple Choice', key: 'multipleChoice', sortable: true, width: '130px' },
-  { title: 'Free Text', key: 'freeText', sortable: true, width: '120px' },
+  { title: 'Answer Formats', key: 'answerFormats', sortable: false, width: '220px' },
   { title: 'Assignment', key: 'assignmentScope', sortable: true, width: '130px' },
   { title: 'Duration', key: 'durationMinutes', sortable: true, width: '110px' },
   { title: 'Description', key: 'description', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '100px' },
 ]
+
+function formatAnswerFormat(f: string): string {
+  const labels: Record<string, string> = {
+    written: 'Written',
+    oral: 'Oral',
+    multipleChoice: 'Multiple Choice',
+    freeText: 'Free Text',
+  }
+  return labels[f] ?? f
+}
 
 function formatLevel(level?: string): string {
   if (!level) return '-'
@@ -319,7 +323,7 @@ const filteredProofsOfCompetency = computed(() => {
   return proofsOfCompetency.value.filter(p =>
     p.name.toLowerCase().includes(q) ||
     (p.description ?? '').toLowerCase().includes(q) ||
-    (p.assessmentType ?? '').toLowerCase().includes(q) ||
+    (p.answerFormats ?? []).some(f => f.toLowerCase().includes(q)) ||
     (p.assignmentScope ?? '').toLowerCase().includes(q)
   )
 })
@@ -410,7 +414,7 @@ async function handleCsvImported(payload: { type: ImportType; count: number; ite
   if (payload.type === 'competencies') {
     await fetchCompetencies()
     showSnackbar(`${payload.count} competency${payload.count === 1 ? '' : 'ies'} imported successfully`)
-  } else if (payload.type === 'proofs_of_competency' || payload.type === 'proofs_of_knowledge') {
+  } else if (payload.type === 'proofs_of_competency') {
     await fetchProofsOfCompetency()
     showSnackbar(`${payload.count} proof${payload.count === 1 ? '' : 's'} of competency imported successfully`)
   }

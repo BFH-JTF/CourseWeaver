@@ -6,10 +6,9 @@ export interface ClassEntity extends AclInfo {
   name: string
   code?: string
   description?: string
-  startingYear?: number
-  /** @deprecated Use startingYear instead */
-  year?: number
   semesterId?: string
+  curriculumVersionId?: string
+  degreeId?: string
   programIds?: string[]
   moduleIds?: string[]
   contact?: string

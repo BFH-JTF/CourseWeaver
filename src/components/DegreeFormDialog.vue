@@ -20,7 +20,7 @@
             :items="programItems"
             item-title="title"
             item-value="value"
-            label="Programs"
+            label="Programs of the displayed curriculum"
             multiple
             chips
             clearable

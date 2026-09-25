@@ -24,6 +24,7 @@ export interface Program extends AclInfo {
   departmentIds?: string[]
   /** @deprecated Use departmentIds instead */
   departmentIDs?: string[]
+  activeCurriculumVersionId?: string
   contact?: string
   url?: string
   /** @deprecated Use url instead */
@@ -72,11 +73,8 @@ export interface Module extends AclInfo {
   code?: string
   creditPoints?: number
   contactHours?: number
-  selfStudyHours?: number
-  teachingHours?: number
   constraints?: ModuleConstraint[]
   curriculumVersionId?: string
-  studyProgramIds?: string[]
   competencyIds?: string[]
   proofOfCompetencyIds?: string[]
 }

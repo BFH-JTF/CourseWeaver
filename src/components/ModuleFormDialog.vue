@@ -24,13 +24,25 @@
             :items="degreeItems"
             item-title="title"
             item-value="value"
-            label="Degrees"
+            label="Degrees of the displayed curriculum"
+            multiple
+            chips
+            clearable
+          />
+          <v-select
+            v-model="selectedClassIds"
+            :items="classItems"
+            item-title="title"
+            item-value="value"
+            label="Classes"
+            hint="Assign this module to one or more classes"
+            persistent-hint
             multiple
             chips
             clearable
           />
           <v-row dense>
-            <v-col cols="12" sm="4">
+            <v-col cols="12" sm="6">
               <v-text-field
                 v-model.number="mod.creditPoints"
                 label="Credit Points (ECTS)"
@@ -38,18 +50,10 @@
                 min="0"
               />
             </v-col>
-            <v-col cols="12" sm="4">
+            <v-col cols="12" sm="6">
               <v-text-field
                 v-model.number="mod.contactHours"
                 label="Contact Hours"
-                type="number"
-                min="0"
-              />
-            </v-col>
-            <v-col cols="12" sm="4">
-              <v-text-field
-                v-model.number="mod.selfStudyHours"
-                label="Self-Study Hours"
                 type="number"
                 min="0"
               />
@@ -136,6 +140,7 @@
 import { ref, computed, watch } from 'vue'
 import { useAcl } from '@/composables/useAcl'
 import type { Module, ModuleConstraint, Degree } from '@/types/curriculum'
+import type { ClassEntity } from '@/types/curriculumClass'
 
 const ENTITY_TABLE = 'modules'
 
@@ -143,6 +148,7 @@ const props = defineProps<{
   modelValue: boolean
   moduleData?: Module
   degrees: Degree[]
+  classes: ClassEntity[]
 }>()
 
 const emit = defineEmits<{
@@ -176,12 +182,22 @@ const selectedDegreeIds = computed({
   },
 })
 
+// ClassEntity owns the ERD relationship (CLASS_ENTITY.moduleIds).  Keep the
+// selection on the module dialog as a convenient editing field and pass it to
+// the parent for persistence on the class records.
+const selectedClassIds = ref<string[]>([])
+
 const degreeItems = computed(() =>
   props.degrees.map(d => ({
     title: d.name || d.id || 'Unnamed',
     value: d.id,
   })).filter(d => d.value)
 )
+
+const classItems = computed(() => props.classes.map(c => ({
+  title: c.name || c.code || c.id || 'Unnamed',
+  value: c.id || c._id,
+})).filter(c => c.value))
 
 function emptyModule(): Module {
   return { name: '', DegreeIDs: [], degreeIDs: [], degreeIds: [], constraints: [] }
@@ -204,6 +220,10 @@ watch(() => props.modelValue, (val) => {
     mod.value = props.moduleData
       ? JSON.parse(JSON.stringify(props.moduleData))
       : emptyModule()
+    const moduleId = props.moduleData?.id || props.moduleData?._id
+    selectedClassIds.value = moduleId
+      ? props.classes.filter(c => (c.moduleIds || []).includes(moduleId)).map(c => c.id || c._id).filter(Boolean) as string[]
+      : []
     if (!mod.value.constraints) mod.value.constraints = []
     if (props.moduleData?.id) {
       fetchAdmins(ENTITY_TABLE, props.moduleData.id)
@@ -246,6 +266,7 @@ async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(mod.value))
+  result.classIds = [...selectedClassIds.value]
   const ids = result.DegreeIDs ?? result.degreeIDs ?? result.degreeIds ?? []
   result.DegreeIDs = ids
   result.degreeIDs = ids

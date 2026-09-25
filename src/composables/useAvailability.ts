@@ -4,6 +4,7 @@ import type { LecturerAvailability } from '@/types/schedule'
 
 export const emptyLecturerAvailability: LecturerAvailability = {
   lecturerId: '',
+  weekId: undefined,
   weekday: 'monday',
   startTime: '08:00',
   endTime: '12:00',

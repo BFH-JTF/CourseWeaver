@@ -1,13 +1,13 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="500" persistent>
+  <v-dialog :model-value="modelValue" max-width="500" scrollable persistent @update:model-value="$emit('update:modelValue', $event)">
     <v-card>
       <v-card-item class="bg-primary text-white py-3">
         <template #prepend>
-          <v-icon icon="mdi-school-outline" size="large" class="me-2" />
+          <v-icon icon="mdi-source-branch" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Semester' : 'Add Semester' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Curriculum Version' : 'Add Curriculum Version' }}</v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
-          Define a semester period for scheduling
+          Create a new curriculum; programs are added within it afterwards
         </v-card-subtitle>
         <template #append>
           <v-btn icon="mdi-close" variant="text" density="comfortable" @click="close" />
@@ -22,36 +22,30 @@
             variant="outlined"
             density="compact"
             :rules="[v => !!v || 'Name is required']"
-            placeholder="e.g. HS2026, FS2027"
+            placeholder="e.g. Studiengangsversion 2026"
+            class="mb-3"
+          />
+
+          <v-textarea
+            v-model="form.description"
+            label="Description"
+            variant="outlined"
+            density="compact"
+            rows="2"
+            auto-grow
             class="mb-3"
           />
 
           <v-text-field
-            v-model="form.startDate"
-            label="Start Date *"
-            type="date"
+            :model-value="form.versionNumber"
+            label="Version Number"
             variant="outlined"
             density="compact"
-            :rules="[v => !!v || 'Start date is required']"
-            class="mb-3"
-          />
-
-          <v-text-field
-            v-model="form.endDate"
-            label="End Date *"
-            type="date"
-            variant="outlined"
-            density="compact"
-            :rules="[v => !!v || 'End date is required', v => !form.startDate || v >= form.startDate || 'End date must be after start date']"
-            class="mb-3"
-          />
-
-          <v-text-field
-            v-model="form.code"
-            label="Code"
-            variant="outlined"
-            density="compact"
-            placeholder="e.g. HS2026"
+            type="number"
+            min="1"
+            readonly
+            hint="Automatically assigned as the next free version number"
+            persistent-hint
             class="mb-3"
           />
         </v-form>
@@ -71,31 +65,29 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Semester } from '@/stores/curriculum'
-import { emptySemester } from '@/composables/useSemesters'
+import type { CurriculumVersion } from '@/stores/curriculum'
+import { emptyCurriculumVersion } from '@/composables/useCurriculumVersions'
 
 const props = defineProps<{
   modelValue: boolean
-  semesterData: Semester | null
+  versionData: CurriculumVersion | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'save', payload: Semester): void
+  (e: 'save', payload: CurriculumVersion): void
 }>()
 
-const isEdit = computed(() => !!props.semesterData?._id || !!props.semesterData?.id)
+const isEdit = computed(() => !!props.versionData?._id || !!props.versionData?.id)
 
-const form = ref<Semester>(JSON.parse(JSON.stringify(emptySemester)))
+const form = ref<CurriculumVersion>(JSON.parse(JSON.stringify(emptyCurriculumVersion())))
 const formRef = ref()
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
-    if (props.semesterData) {
-      form.value = JSON.parse(JSON.stringify(props.semesterData))
-    } else {
-      form.value = JSON.parse(JSON.stringify(emptySemester))
-    }
+    form.value = props.versionData
+      ? JSON.parse(JSON.stringify(props.versionData))
+      : JSON.parse(JSON.stringify(emptyCurriculumVersion()))
   }
 })
 
@@ -103,7 +95,9 @@ function close() {
   emit('update:modelValue', false)
 }
 
-function submit() {
+async function submit() {
+  const { valid } = await formRef.value?.validate() ?? { valid: false }
+  if (!valid) return
   emit('save', JSON.parse(JSON.stringify(form.value)))
   close()
 }

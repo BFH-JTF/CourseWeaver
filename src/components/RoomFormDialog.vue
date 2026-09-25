@@ -16,10 +16,10 @@
           <v-window v-model="tab" class="mt-4">
             <v-window-item value="general">
               <v-text-field v-model="room.name" label="Room name *" :rules="[v => !!v || 'Name is required']" />
-              <v-select v-model="room.room_type" :items="roomTypeOptions" label="Room type *" />
+              <v-select v-model="room.roomType" :items="roomTypeOptions" label="Room type *" />
               <v-text-field v-model="room.owner" label="Owner" />
               <v-select
-                v-model="room.location_id"
+                v-model="room.locationId"
                 :items="locationItems"
                 item-title="title"
                 item-value="value"
@@ -37,14 +37,11 @@
                 </template>
               </v-select>
               <v-text-field v-model="floorInput" label="Floor *" :rules="[v => v !== '' || 'Floor is required']" />
-              <v-text-field v-model="room.room_number" label="Room number *" :rules="[v => !!v || 'Room number is required']" />
+              <v-text-field v-model="room.roomNumber" label="Room number *" :rules="[v => !!v || 'Room number is required']" />
             </v-window-item>
 
             <v-window-item value="capacity">
-              <v-text-field v-model.number="room.capacity.seats" label="Seats *" type="number" min="0" :rules="[v => v >= 0 || 'Must be 0 or more']" />
-              <v-text-field v-model.number="room.capacity.accessible_seats" label="Accessible seats" type="number" min="0" />
-              <v-text-field v-model.number="room.capacity.desks" label="Desks" type="number" min="0" />
-              <v-text-field v-model.number="room.capacity.standing_capacity" label="Standing capacity" type="number" min="0" />
+              <v-text-field v-model.number="room.capacity" label="Seats *" type="number" min="0" :rules="[v => v >= 0 || 'Must be 0 or more']" />
             </v-window-item>
 
             <v-window-item value="layout">
@@ -154,10 +151,10 @@ const room = ref<Room>(emptyRoom())
 function emptyRoom(): Room {
   return {
     name: '',
-    room_type: 'classroom',
+    roomType: 'classroom',
     floor: 0,
-    room_number: '',
-    capacity: { seats: 0 },
+    roomNumber: '',
+    capacity: 0,
     layout: {},
     equipment: {
       whiteboards: 0,
@@ -167,7 +164,6 @@ function emptyRoom(): Room {
     },
     connectivity: {},
     accessibility: { step_free_access: false },
-    availability: {},
   }
 }
 
@@ -212,7 +208,6 @@ function ensureNestedObjects() {
     room.value.equipment.streaming_camera = { available: false }
   }
   if (!room.value.connectivity) room.value.connectivity = {}
-  if (!room.value.availability) room.value.availability = {}
 }
 
 ensureNestedObjects()

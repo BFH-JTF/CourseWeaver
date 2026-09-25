@@ -3,7 +3,7 @@ import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { SchedulingRule } from '@/types/schedule'
 
 export const emptySchedulingRule: SchedulingRule = {
-  constraintId: '',
+  ruleType: '',
   category: 'hard',
   weight: 1,
   enabled: true,

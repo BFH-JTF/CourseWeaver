@@ -17,11 +17,11 @@
       <v-card-text class="pa-4 pa-sm-6">
         <v-form ref="formRef" @submit.prevent="submit">
           <v-select
-            v-model="form.constraintId"
+            v-model="form.ruleType"
             :items="constraintOptions"
             item-title="title"
             item-value="value"
-            label="Constraint Rule *"
+            label="Rule Type *"
             :rules="[v => !!v || 'Select a constraint rule']"
             variant="outlined"
             density="compact"
@@ -269,7 +269,7 @@ watch(() => props.modelValue, (isOpen) => {
   }
 })
 
-watch(() => form.value.constraintId, (newId) => {
+watch(() => form.value.ruleType, (newId) => {
   const catalogEntry = CONSTRAINT_CATALOG.find(c => c.value === newId)
   if (catalogEntry) {
     form.value.category = catalogEntry.category as 'hard' | 'soft'

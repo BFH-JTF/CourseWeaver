@@ -30,11 +30,17 @@
           <v-row dense>
             <v-col cols="12" sm="6">
               <v-select
-                v-model="proof.assessmentType"
-                :items="assessmentTypeOptions"
-                label="Format (Written / Oral)"
+                v-model="proof.answerFormats"
+                :items="answerFormatOptions"
+                label="Answer Formats"
+                hint="A proof may mix formats, e.g. multiple choice + free text"
+                persistent-hint
                 variant="outlined"
                 density="compact"
+                multiple
+                chips
+                closable-chips
+                clearable
               />
             </v-col>
 
@@ -63,28 +69,6 @@
               />
             </v-col>
           </v-row>
-
-          <div class="text-subtitle-2 font-weight-medium mt-3 mb-1">Question & Examination Format</div>
-          <v-row dense>
-            <v-col cols="12" sm="6">
-              <v-checkbox
-                v-model="proof.multipleChoice"
-                label="Multiple Choice Questions"
-                color="primary"
-                density="compact"
-                hide-details
-              />
-            </v-col>
-            <v-col cols="12" sm="6">
-              <v-checkbox
-                v-model="proof.freeText"
-                label="Free Text Questions"
-                color="primary"
-                density="compact"
-                hide-details
-              />
-            </v-col>
-          </v-row>
         </v-form>
       </v-card-text>
       <v-card-actions class="pa-4">
@@ -98,7 +82,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { ProofOfCompetency } from '@/types/proofOfCompetency'
+import type { ProofOfCompetency, AnswerFormat } from '@/types/proofOfCompetency'
 
 const props = defineProps<{
   modelValue: boolean
@@ -115,9 +99,11 @@ const isEdit = computed(() => !!props.proofData?.id)
 const formRef = ref()
 const proof = ref<ProofOfCompetency>(emptyProof())
 
-const assessmentTypeOptions = [
+const answerFormatOptions: { title: string; value: AnswerFormat }[] = [
   { title: 'Written', value: 'written' },
   { title: 'Oral', value: 'oral' },
+  { title: 'Multiple Choice', value: 'multipleChoice' },
+  { title: 'Free Text', value: 'freeText' },
 ]
 
 const assignmentScopeOptions = [
@@ -129,9 +115,7 @@ function emptyProof(): ProofOfCompetency {
   return {
     name: '',
     description: '',
-    assessmentType: 'written',
-    multipleChoice: false,
-    freeText: false,
+    answerFormats: [],
     assignmentScope: 'individual',
     durationMinutes: undefined,
     competencyIds: [],

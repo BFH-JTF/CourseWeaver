@@ -47,17 +47,17 @@ CourseWeaver provides an integrated solution tailored to university workflows:
 - **Hierarchical Structure**: Model academic structure from **Departments** &rarr; **Study Programs** &rarr; **Degrees** &rarr; **Modules** &rarr; **Lessons**.
 - **Full CRUD Management**: Add, edit, and delete departments, programs, degrees, and modules through dedicated form dialogs. Search, sort, and filter entries in data tables.
 - **CSV Import**: Bulk-import departments, programs, degrees, and modules from CSV files with automatic column mapping and preview.
-- **Curriculum Versioning**: Maintain version history for curricula. Fork entire taxonomy and module mappings so that existing student cohorts continue under their admitted curriculum version while new cohorts transition to updated curricula.
+- **Curriculum Versioning**: Maintain version history for curricula. Curriculum versions are managed on the Curriculum screen: add, edit, and delete versions, set a version as the active version of its program, and choose which version is displayed for editing — so that existing student cohorts continue under their admitted curriculum version while new cohorts transition to updated curricula.
 
 ### Academic Taxonomy & Competency Framework
 - **Multi-Level Taxonomy**: Define and organize standard measuring frameworks:
-  - **Competencies**: High-level program learning goals (e.g., analytical thinking, leadership).
+  - **Competencies**: High-level program learning goals (e.g., analytical thinking, leadership), mappable to competency matrix axes (x/y).
   - **Learning Objectives**: Specific, measurable knowledge and skills acquired in modules/lessons.
-  - **Proofs of Competency**: Assessment methods (exams, assignments, presentations) verifying competency acquisition.
+  - **Proofs of Competency**: Assessment methods verifying competency acquisition, with mixed answer formats (written, oral, multiple choice, free text).
 - **CRUD & CSV Import**: Add, edit, delete, and bulk-import competencies and proofs of competency.
 
 ### Module Management & Relationship Constraints
-- **Detailed Module Profiles**: Track module codes, ECTS credit points, contact hours, teaching hours, and self-study hours.
+- **Detailed Module Profiles**: Track module codes, ECTS credit points, and contact hours (self-study time is derived: ≈ 30 × ECTS − contact hours).
 - **Inter-Module Relationships**: Define and enforce relational rules between modules:
   - `requires` (Prerequisite: Module A must be completed before Module B)
   - `corequisite` (Co-requisite: Module A must be taken alongside Module B)
@@ -67,19 +67,21 @@ CourseWeaver provides an integrated solution tailored to university workflows:
 ### Rooms & Locations Planning
 - **Location Management**: Track campuses, buildings, street addresses, and geographic coordinates (latitude/longitude).
 - **Classroom & Facility Profiles**:
-  - **Room Types**: Lecture halls, classrooms, computer labs, laboratories, seminar rooms, and custom spaces.
-  - **Capacities**: Seating capacity, accessible seating, desk count, and standing capacity.
+  - **Room Types**: Lecture halls, classrooms, computer labs, laboratories, and custom spaces.
+  - **Capacity**: Seat capacity per room.
   - **Layout & Furniture**: Room layouts (rows, U-shape, boardroom, laboratory benches, computer workstations), movable furniture, group work suitability, and floor area ($m^2$).
   - **AV & Tech Equipment**: Whiteboards, smartboards, projectors, document cameras, lecterns, audio systems, streaming cameras (fixed, tracking, PTZ with 720p/1080p/4K), and video conferencing systems.
   - **Connectivity**: Wi-Fi, wired network speed (Mbps), power outlets, and display connections (HDMI, DisplayPort, USB-C, VGA, etc.).
   - **Accessibility**: Step-free access, accessible doors and seating, hearing loops, Braille signage, and nearby accessible restrooms.
-  - **Availability & Maintenance**: Configurable weekly availability schedules, blocked periods, and maintenance tracking.
+  - **Maintenance**: Maintenance tracking metadata per room.
+- **Availability**: Per-week room availability time slots for scheduling.
 - **CRUD & CSV Import**: Add, edit, delete, and bulk-import rooms and locations.
 
 ### Semester Scheduling & Timetabling
-- **Semester Configuration**: Define semester identifiers, start/end dates, official holidays, and special academic dates.
-- **Faculty Availability**: Manage lecturer profiles, departments, and weekly availability time slots.
-- **Session Scheduling**: Assign lecturers, rooms, dates, and times to individual module lessons based on constraint formats (block weeks, weekly sessions, bi-weekly classes).
+- **Semester Configuration**: Define semester names, codes, and start/end dates.
+- **Calendar Weeks**: Break a semester into numbered calendar weeks (with days off) that host availability slots and schedule entries.
+- **Schedule Entries**: Schedule modules, rooms, classes, and lecturers into a weekday + time window per week.
+- **Faculty Availability**: Manage lecturer profiles, departments, and per-week availability time slots.
 
 ### Conflict Detection & Resolution
 - Automated detection of scheduling conflicts:
@@ -124,10 +126,13 @@ CourseWeaver/
 ├── docker-compose.yml           # PostgreSQL, app server, and OIDC provider
 ├── eslint.config.js             # ESLint configuration
 ├── docs/                        # Specifications and data structure documentation
+│   ├── courseWeaverERD.mermaid      # Entity-relationship diagram (data model)
 │   ├── datastructure.curriculum.md  # Core academic entity definitions
 │   ├── datastructure.locations.md   # Location JSON & CSV specifications
 │   ├── datastructure.rooms.md       # Classroom & equipment specifications
+│   ├── datastructure.rules.md       # Scheduling rule & constraint catalog
 │   ├── datastructure.student_skills.md # Skill categories and proficiency levels
+│   └── openAPI.yaml                 # REST API specification
 ├── index.html                   # HTML entry point
 ├── package.json                 # Project dependencies and scripts
 ├── server/                      # Backend Express REST API
@@ -145,30 +150,44 @@ CourseWeaver/
 │   ├── App.vue                  # Root component with OIDC lifecycle handler
 │   ├── main.ts                  # Application bootstrapping
 │   ├── components/              # Reusable UI dialogs and components
-│   │   ├── CompetencyFormDialog.vue       # Competency add/edit dialog
-│   │   ├── CsvImportDialog.vue            # CSV import with column mapping & preview
-│   │   ├── DegreeFormDialog.vue           # Degree add/edit dialog
-│   │   ├── DepartmentFormDialog.vue       # Department add/edit dialog
-│   │   ├── LocationFormDialog.vue         # Location add/edit dialog
-│   │   ├── ModuleFormDialog.vue           # Module add/edit dialog (with constraints)
-│   │   ├── ProgramFormDialog.vue          # Program add/edit dialog
+│   │   ├── AvailabilityFormDialog.vue      # Lecturer availability add/edit dialog
+│   │   ├── ClassFormDialog.vue             # Class (cohort) add/edit dialog
+│   │   ├── CompetencyFormDialog.vue        # Competency add/edit dialog
+│   │   ├── CsvImportDialog.vue             # CSV import with column mapping & preview
+│   │   ├── DegreeFormDialog.vue            # Degree add/edit dialog
+│   │   ├── DepartmentFormDialog.vue        # Department add/edit dialog
+│   │   ├── LocationFormDialog.vue          # Location add/edit dialog
+│   │   ├── ModuleFormDialog.vue            # Module add/edit dialog (with constraints)
+│   │   ├── ProgramFormDialog.vue           # Program add/edit dialog
 │   │   ├── ProofOfCompetencyFormDialog.vue # Proof of competency add/edit dialog
-│   │   └── RoomFormDialog.vue             # Room add/edit dialog
+│   │   ├── RoomFormDialog.vue              # Room add/edit dialog
+│   │   ├── SchedulingRuleFormDialog.vue    # Scheduling rule add/edit dialog
+│   │   ├── ScheduleEntryFormDialog.vue     # Schedule entry add/edit dialog
+│   │   ├── SemesterFormDialog.vue          # Semester add/edit dialog
+│   │   └── WeekFormDialog.vue              # Calendar week add/edit dialog
 │   ├── composables/             # Shared business logic and API integrations
+│   │   ├── useClasses.ts                  # Class (cohort) CRUD operations
 │   │   ├── useCompetencies.ts             # Competency CRUD operations
 │   │   ├── useCsvImport.ts                # CSV import save logic
 │   │   ├── useDegrees.ts                  # Degree CRUD operations
 │   │   ├── useDepartments.ts              # Department CRUD operations
 │   │   ├── useDocPouch.ts                 # docPouch OIDC compatibility adapter
+│   │   ├── useAvailability.ts             # Lecturer availability CRUD operations
 │   │   ├── useLocations.ts                # Location CRUD operations
+│   │   ├── useMatrixCompetencies.ts       # Competency matrix grid CRUD operations
 │   │   ├── useModules.ts                  # Module CRUD operations
 │   │   ├── useOidc.ts                     # OpenID Connect authentication
 │   │   ├── usePostgres.ts                 # PostgreSQL JSONB REST API client & settings
 │   │   ├── usePrograms.ts                 # Program CRUD operations
 │   │   ├── useProofsOfCompetency.ts       # Proof of competency CRUD operations
+│   │   ├── useRoomAvailabilities.ts       # Room availability CRUD operations
 │   │   ├── useRooms.ts                    # Room CRUD operations
+│   │   ├── useScheduleEntries.ts          # Schedule entry CRUD operations
+│   │   ├── useSchedulingRules.ts          # Scheduling rule CRUD operations
+│   │   ├── useSemesters.ts                # Semester CRUD operations
 │   │   ├── useTimetableCpSat.ts           # Timetable constraint solver
-│   │   └── useTimetableServer.ts          # Timetable server integration
+│   │   ├── useTimetableServer.ts          # Timetable server integration
+│   │   └── useWeeks.ts                    # Calendar week CRUD operations
 │   ├── layouts/
 │   │   └── AppLayout.vue                  # Navigation drawer, app bar, and main layout
 │   ├── plugins/
@@ -180,15 +199,18 @@ CourseWeaver/
 │   │   └── curriculum.ts                   # Curriculum, module, lesson, and taxonomy store
 │   ├── types/                   # TypeScript interface declarations
 │   │   ├── competency.ts                  # Competency and skill taxonomy types
+│   │   ├── competencyMatrix.ts            # Competency matrix types
 │   │   ├── csvImport.ts                    # CSV import configuration types
 │   │   ├── curriculum.ts                   # Department, Program, Degree, Module types
-│   │   ├── degree.ts                       # Degree re-export
-│   │   ├── department.ts                   # Department re-export
+│   │   ├── curriculumClass.ts              # Class (cohort) type
 │   │   ├── location.ts                     # Location entity definitions
-│   │   ├── module.ts                       # Module re-export
-│   │   ├── program.ts                      # Program re-export
+│   │   ├── matrixCompetency.ts             # Competency matrix grid row type
 │   │   ├── proofOfCompetency.ts            # Proof of competency types
-│   │   └── room.ts                         # Room, equipment & availability types
+│   │   ├── room.ts                         # Room, equipment & availability types
+│   │   ├── roomAvailability.ts             # Room availability type
+│   │   ├── schedule.ts                     # Scheduling rule & weekday types
+│   │   ├── scheduleEntry.ts                # Schedule entry type
+│   │   └── week.ts                         # Calendar week type
 │   ├── utils/                   # Utility functions
 │   │   ├── curriculumNormalize.ts          # Normalize field aliases on curriculum entities
 │   │   ├── csvParser.ts                   # CSV parsing utilities
@@ -203,7 +225,7 @@ CourseWeaver/
 │       ├── LoginView.vue                  # OIDC login view
 │       ├── ReportsView.vue               # Curriculum reporting and export view
 │       ├── RoomsView.vue                 # Rooms and locations management view
-│       ├── ScheduleView.vue              # Semester schedule and lecturer assignments
+│       ├── ScheduleView.vue              # Semester weeks, schedule entries, availability, and rules
 │       ├── SettingsView.vue             # PostgreSQL connection and OIDC provider settings
 │       └── TaxonomyView.vue              # Competencies & proofs of competency management
 ├── tsconfig.app.json            # Frontend TypeScript compiler options
@@ -330,20 +352,27 @@ Academic records and institutional resources are stored in PostgreSQL tables wit
 
 | Entity | Table Name | Storage Format | Description |
 |---|---|---|---|
-| `CURRICULUM_VERSION` | `curriculum_versions` | JSONB | Curriculum versions and parent forks |
-| `STUDY_PROGRAM` | `study_programs` | JSONB | Academic study programs |
 | `DEPARTMENT` | `departments` | JSONB | Academic departments and faculties |
 | `PROGRAM` | `programs` | JSONB | Structured courses of study |
 | `DEGREE` | `degrees` | JSONB | Academic degree qualifications |
+| `CURRICULUM_VERSION` | `curriculum_versions` | JSONB | Curriculum versions |
+| `CLASS` | `classes` | JSONB | Student classes/cohorts (intake semester, degree, size) |
 | `MODULE` | `modules` | JSONB | Modules, ECTS credits, and relationship constraints |
-| `SEMESTER` | `semesters` | JSONB | Semesters, dates, and holidays |
-| `LESSON` | `lessons` | JSONB | Lessons, taxonomy links, and scheduled sessions |
+| `LESSON` | `lessons` | JSONB | Lessons and taxonomy links |
+| `SEMESTER` | `semesters` | JSONB | Semesters, names, codes, and dates |
+| `WEEK` | `weeks` | JSONB | Calendar weeks per semester, with days off |
+| `SCHEDULE_ENTRY` | `schedule_entries` | JSONB | Scheduled sessions (modules, rooms, classes, lecturers) |
 | `ROOM` | `rooms` | JSONB | Classrooms, capacity, layout, equipment |
+| `ROOM_AVAILABILITY` | `room_availability` | JSONB | Per-week room availability time slots |
 | `LOCATION` | `locations` | JSONB | Campuses, buildings, addresses, geo-coordinates |
-| `LECTURER` | `lecturers` | JSONB | Faculty profiles and availability slots |
-| `TAXONOMY` | `taxonomy_items` | JSONB | Competencies, learning objectives, proofs of competency |
+| `LECTURER` | `lecturers` | JSONB | Faculty profiles |
+| `LECTURER_AVAILABILITY` | `lecturer_availability` | JSONB | Per-week lecturer availability time slots |
+| `SCHEDULING_RULE` | `scheduling_rules` | JSONB | Timetable constraint rules (rule type, weight, params) |
+| `TAXONOMY` | `taxonomy_items` | JSONB | Learning objectives taxonomy |
 | `COMPETENCY` | `competencies` | JSONB | Competencies and skill taxonomy |
-| `PROOF_OF_COMPETENCY` | `proofs_of_competency` | JSONB | Assessment methods and examination formats |
+| `COMPETENCY_MATRIX` | `competency_matrices` | JSONB | Competency matrices |
+| `MATRIX_COMPETENCY` | `matrix_competencies` | JSONB | Competency matrix grid rows (x/y axes) |
+| `PROOF_OF_COMPETENCY` | `proofs_of_competency` | JSONB | Assessment methods and answer formats |
 
 ---
 

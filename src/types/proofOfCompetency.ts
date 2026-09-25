@@ -1,17 +1,14 @@
 import type { AclInfo } from '@/types/curriculum'
 
-export type AssessmentForm = 'written' | 'oral'
-export type AssignmentScope = 'individual' | 'group'
+export type AnswerFormat = 'written' | 'oral' | 'multipleChoice' | 'freeText'
 
 export interface ProofOfCompetency extends AclInfo {
   id?: string
   _id?: string
   name: string
   description?: string
-  assessmentType?: AssessmentForm | string
-  multipleChoice?: boolean
-  freeText?: boolean
-  assignmentScope?: AssignmentScope | string
+  answerFormats?: AnswerFormat[]
+  assignmentScope?: 'individual' | 'group' | string
   durationMinutes?: number
   competencyIds?: string[]
   created_at?: string

@@ -12,19 +12,11 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
 
 export const WEEKDAY_OPTIONS: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
-export interface RecurringAvailability {
-  id?: string
-  _id?: string
-  weekday: Weekday
-  startTime: string
-  endTime: string
-  label?: string
-}
-
 export interface LecturerAvailability {
   _id?: string
   id?: string
   lecturerId: string
+  weekId?: string
   weekday: Weekday
   startTime: string
   endTime: string
@@ -37,7 +29,7 @@ export type ConstraintCategory = 'hard' | 'soft'
 export interface SchedulingRule {
   _id?: string
   id?: string
-  constraintId: string
+  ruleType: string
   category: ConstraintCategory
   weight: number
   enabled: boolean

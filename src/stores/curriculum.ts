@@ -6,9 +6,10 @@ import type { Location } from '@/types/location'
 import type { Department, Program, Degree, Module, ModuleConstraint } from '@/types/curriculum'
 import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
 import type { MatrixCompetency } from '@/types/matrixCompetency'
+import type { CompetencyMatrix } from '@/types/competencyMatrix'
 import type { RoomAvailability } from '@/types/roomAvailability'
-import type { WeekLecture } from '@/types/weekLecture'
-import type { SemesterSchedule } from '@/types/semesterSchedule'
+import type { Week } from '@/types/week'
+import type { ScheduleEntry } from '@/types/scheduleEntry'
 
 export type { Department, Program, Degree, Module, ModuleConstraint }
 export type { LecturerAvailability, SchedulingRule }
@@ -22,47 +23,16 @@ export interface CurriculumVersion {
   /** @deprecated Use versionNumber instead */
   version?: number
   programId?: string
-  parentId?: string
   createdAt?: string
-}
-
-export interface StudyProgram {
-  _id?: string
-  id?: string
-  name: string
-  description?: string
-  degreeType?: string
-  version?: number
-  curriculumVersionId?: string
-  departmentIDs?: string[]
-  departmentIds?: string[]
-  contact?: string
-  url?: string
-  /** @deprecated Use url instead */
-  URL?: string
 }
 
 export interface Semester {
   _id?: string
   id?: string
   name?: string
-  /** @deprecated Use name instead */
-  identifier?: string
   code?: string
   startDate: string
   endDate: string
-  daysOff?: string[]
-  /** @deprecated Use daysOff instead */
-  holidays?: DateRange[]
-  specialDates?: DateRange[]
-  curriculumVersionId?: string
-  schedulingRulesId?: string
-}
-
-export interface DateRange {
-  start: string
-  end: string
-  label?: string
 }
 
 export interface Lesson {
@@ -73,17 +43,6 @@ export interface Lesson {
   description?: string
   taxonomyItemIds?: string[]
   proofOfCompetencyIds?: string[]
-  /** @deprecated Use proofOfCompetencyIds instead */
-  proofOfKnowledgeIds?: string[]
-  scheduledSessions?: ScheduledSession[]
-}
-
-export interface ScheduledSession {
-  date: string
-  startTime: string
-  endTime: string
-  lecturerId?: string
-  roomId?: string
 }
 
 export interface Lecturer {
@@ -91,17 +50,8 @@ export interface Lecturer {
   id?: string
   name: string
   userId?: string
-  email?: string
-  department?: string
+  departmentId?: string
   moduleIds?: string[]
-  /** @deprecated Use flat LecturerAvailability entities instead */
-  availability?: AvailabilitySlot[]
-}
-
-export interface AvailabilitySlot {
-  dayOfWeek: number
-  startTime: string
-  endTime: string
 }
 
 export interface TaxonomyItem {
@@ -110,15 +60,12 @@ export interface TaxonomyItem {
   name: string
   description?: string
   category: 'competency' | 'learningObjective' | 'proofOfCompetency'
-  /** @deprecated Use 'proofOfCompetency' instead */
-  parentTaxonomyItemId?: string
 }
 
 export const useCurriculumStore = defineStore('curriculum', () => {
   const { fetchEntities } = usePostgres()
 
   const curriculumVersions = ref<CurriculumVersion[]>([])
-  const studyPrograms = ref<StudyProgram[]>([])
   const departments = ref<Department[]>([])
   const programs = ref<Program[]>([])
   const degrees = ref<Degree[]>([])
@@ -131,10 +78,11 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const lecturerAvailabilities = ref<LecturerAvailability[]>([])
   const schedulingRules = ref<SchedulingRule[]>([])
   const taxonomyItems = ref<TaxonomyItem[]>([])
+  const competencyMatrices = ref<CompetencyMatrix[]>([])
   const matrixCompetencies = ref<MatrixCompetency[]>([])
   const roomAvailabilities = ref<RoomAvailability[]>([])
-  const weekLectures = ref<WeekLecture[]>([])
-  const semesterSchedules = ref<SemesterSchedule[]>([])
+  const weeks = ref<Week[]>([])
+  const scheduleEntries = ref<ScheduleEntry[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -179,18 +127,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     error.value = null
     try {
       curriculumVersions.value = await fetchEntities<CurriculumVersion>(EntityTables.CURRICULUM_VERSION)
-    } catch (e: any) {
-      error.value = e.message
-    } finally {
-      loading.value = false
-    }
-  }
-
-  async function fetchStudyPrograms() {
-    loading.value = true
-    error.value = null
-    try {
-      studyPrograms.value = await fetchEntities<StudyProgram>(EntityTables.STUDY_PROGRAM)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -306,6 +242,18 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
+  async function fetchCompetencyMatrices() {
+    loading.value = true
+    error.value = null
+    try {
+      competencyMatrices.value = await fetchEntities<CompetencyMatrix>(EntityTables.COMPETENCY_MATRIX)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchMatrixCompetencies() {
     loading.value = true
     error.value = null
@@ -330,11 +278,11 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
-  async function fetchWeekLectures() {
+  async function fetchWeeks() {
     loading.value = true
     error.value = null
     try {
-      weekLectures.value = await fetchEntities<WeekLecture>(EntityTables.WEEK_LECTURE)
+      weeks.value = await fetchEntities<Week>(EntityTables.WEEK)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -342,11 +290,11 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
-  async function fetchSemesterSchedules() {
+  async function fetchScheduleEntries() {
     loading.value = true
     error.value = null
     try {
-      semesterSchedules.value = await fetchEntities<SemesterSchedule>(EntityTables.SEMESTER_SCHEDULE)
+      scheduleEntries.value = await fetchEntities<ScheduleEntry>(EntityTables.SCHEDULE_ENTRY)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -356,7 +304,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
 
   return {
     curriculumVersions,
-    studyPrograms,
     departments,
     programs,
     degrees,
@@ -369,14 +316,14 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     lecturerAvailabilities,
     schedulingRules,
     taxonomyItems,
+    competencyMatrices,
     matrixCompetencies,
     roomAvailabilities,
-    weekLectures,
-    semesterSchedules,
+    weeks,
+    scheduleEntries,
     loading,
     error,
     fetchCurriculumVersions,
-    fetchStudyPrograms,
     fetchDepartments,
     fetchPrograms,
     fetchDegrees,
@@ -389,9 +336,10 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     fetchLecturerAvailabilities,
     fetchSchedulingRules,
     fetchTaxonomyItems,
+    fetchCompetencyMatrices,
     fetchMatrixCompetencies,
     fetchRoomAvailabilities,
-    fetchWeekLectures,
-    fetchSemesterSchedules,
+    fetchWeeks,
+    fetchScheduleEntries,
   }
 })

@@ -8,6 +8,11 @@ export interface LocalUserProfile {
   oidc_subject: string
   name: string
   email: string
+  local_name?: string
+  display_name?: string
+  supplier_id?: string
+  is_active?: boolean
+  timezone?: string
   roles: string[]
   is_admin: boolean
   created_at?: string

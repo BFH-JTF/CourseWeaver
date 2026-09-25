@@ -11,6 +11,11 @@ export interface LocalUser {
   oidc_subject: string
   name: string
   email: string
+  local_name: string
+  display_name: string
+  supplier_id: string
+  is_active: boolean
+  timezone: string
   roles: string[]
   is_admin: boolean
   created_at: string
@@ -107,6 +112,11 @@ export async function initDatabase(): Promise<boolean> {
           oidc_subject VARCHAR(512) NOT NULL,
           name VARCHAR(255) DEFAULT '',
           email VARCHAR(255) DEFAULT '',
+          local_name VARCHAR(255) DEFAULT '',
+          display_name VARCHAR(255) DEFAULT '',
+          supplier_id VARCHAR(512) DEFAULT '',
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          timezone VARCHAR(64) DEFAULT '',
           roles JSONB NOT NULL DEFAULT '[]'::jsonb,
           is_admin BOOLEAN NOT NULL DEFAULT FALSE,
           created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -114,6 +124,12 @@ export async function initDatabase(): Promise<boolean> {
           CONSTRAINT uq_local_users_oidc UNIQUE (oidc_issuer, oidc_subject)
         );
         CREATE INDEX IF NOT EXISTS idx_local_users_admin ON local_users(is_admin);
+
+        ALTER TABLE local_users ADD COLUMN IF NOT EXISTS local_name VARCHAR(255) DEFAULT '';
+        ALTER TABLE local_users ADD COLUMN IF NOT EXISTS display_name VARCHAR(255) DEFAULT '';
+        ALTER TABLE local_users ADD COLUMN IF NOT EXISTS supplier_id VARCHAR(512) DEFAULT '';
+        ALTER TABLE local_users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+        ALTER TABLE local_users ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) DEFAULT '';
 
         CREATE TABLE IF NOT EXISTS entity_acl (
           table_name VARCHAR(100) NOT NULL,
@@ -151,6 +167,11 @@ function mapRowToUser(row: any): LocalUser {
     oidc_subject: row.oidc_subject,
     name: row.name || '',
     email: row.email || '',
+    local_name: row.local_name || '',
+    display_name: row.display_name || '',
+    supplier_id: row.supplier_id || '',
+    is_active: row.is_active !== false,
+    timezone: row.timezone || '',
     roles: Array.isArray(row.roles) ? row.roles : typeof row.roles === 'string' ? JSON.parse(row.roles) : [],
     is_admin: !!row.is_admin,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ''),
@@ -249,6 +270,11 @@ export async function createOrUpdateUser(data: {
   oidc_subject: string
   name?: string
   email?: string
+  local_name?: string
+  display_name?: string
+  supplier_id?: string
+  is_active?: boolean
+  timezone?: string
   roles?: string[]
   is_admin?: boolean
 }): Promise<LocalUser> {
@@ -257,19 +283,26 @@ export async function createOrUpdateUser(data: {
   const isAdmin = data.is_admin ?? false
   const name = data.name || ''
   const email = data.email || ''
+  const localName = data.local_name || data.name || ''
+  const displayName = data.display_name || data.name || ''
+  const supplierId = data.supplier_id || data.oidc_issuer || ''
+  const isActive = data.is_active ?? true
+  const timezone = data.timezone || ''
 
   if (isConnected && pool) {
     const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
     const res = await pool.query(
-      `INSERT INTO local_users (id, oidc_issuer, oidc_subject, name, email, roles, is_admin, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+      `INSERT INTO local_users (id, oidc_issuer, oidc_subject, name, email, local_name, display_name, supplier_id, is_active, timezone, roles, is_admin, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
        ON CONFLICT (oidc_issuer, oidc_subject)
        DO UPDATE SET
          name = CASE WHEN local_users.name IS NOT NULL AND local_users.name <> '' THEN local_users.name ELSE $4 END,
          email = CASE WHEN local_users.email IS NOT NULL AND local_users.email <> '' THEN local_users.email ELSE $5 END,
-         updated_at = $8
+         local_name = CASE WHEN local_users.local_name IS NOT NULL AND local_users.local_name <> '' THEN local_users.local_name ELSE $6 END,
+         display_name = CASE WHEN local_users.display_name IS NOT NULL AND local_users.display_name <> '' THEN local_users.display_name ELSE $7 END,
+         updated_at = $13
        RETURNING *`,
-      [id, data.oidc_issuer, data.oidc_subject, name, email, JSON.stringify(roles), isAdmin, now]
+      [id, data.oidc_issuer, data.oidc_subject, name, email, localName, displayName, supplierId, isActive, timezone, JSON.stringify(roles), isAdmin, now]
     )
     return mapRowToUser(res.rows[0])
   }
@@ -282,6 +315,8 @@ export async function createOrUpdateUser(data: {
     if (existing) {
       if (!existing.name && name) existing.name = name
       if (!existing.email && email) existing.email = email
+      if (!existing.local_name && localName) existing.local_name = localName
+      if (!existing.display_name && displayName) existing.display_name = displayName
       existing.updated_at = now
       memoryUsers.set(existing.id, existing)
       return { ...existing }
@@ -293,6 +328,11 @@ export async function createOrUpdateUser(data: {
         oidc_subject: data.oidc_subject,
         name,
         email,
+        local_name: localName,
+        display_name: displayName,
+        supplier_id: supplierId,
+        is_active: isActive,
+        timezone,
         roles,
         is_admin: isAdmin,
         created_at: now,
@@ -306,22 +346,39 @@ export async function createOrUpdateUser(data: {
 
 export async function updateUser(id: string, updates: Partial<LocalUser>): Promise<LocalUser | null> {
   const now = new Date().toISOString()
+  const current = await getUserById(id)
+  if (!current) return null
+
+  // Guard: never allow demoting the last remaining administrator
+  if (current.is_admin) {
+    const newIsAdmin = updates.is_admin !== undefined ? !!updates.is_admin : current.is_admin
+    const newRoles = updates.roles !== undefined ? updates.roles : current.roles
+    if (!newIsAdmin || !newRoles.includes('admin')) {
+      const adminCount = await getAdminCount()
+      if (adminCount <= 1) {
+        throw new Error('Cannot remove the last remaining administrator')
+      }
+    }
+  }
+
   if (isConnected && pool) {
     try {
-      const current = await getUserById(id)
-      if (!current) return null
-
       const name = updates.name !== undefined ? updates.name : current.name
       const email = updates.email !== undefined ? updates.email : current.email
+      const localName = updates.local_name !== undefined ? updates.local_name : current.local_name
+      const displayName = updates.display_name !== undefined ? updates.display_name : current.display_name
+      const supplierId = updates.supplier_id !== undefined ? updates.supplier_id : current.supplier_id
+      const isActive = updates.is_active !== undefined ? updates.is_active : current.is_active
+      const timezone = updates.timezone !== undefined ? updates.timezone : current.timezone
       const roles = updates.roles !== undefined ? updates.roles : current.roles
       const isAdmin = updates.is_admin !== undefined ? updates.is_admin : current.is_admin
 
       const res = await pool.query(
         `UPDATE local_users
-         SET name = $1, email = $2, roles = $3, is_admin = $4, updated_at = $5
-         WHERE id = $6
+         SET name = $1, email = $2, local_name = $3, display_name = $4, supplier_id = $5, is_active = $6, timezone = $7, roles = $8, is_admin = $9, updated_at = $10
+         WHERE id = $11
          RETURNING *`,
-        [name, email, JSON.stringify(roles), isAdmin, now, id]
+        [name, email, localName, displayName, supplierId, isActive, timezone, JSON.stringify(roles), isAdmin, now, id]
       )
       if (res.rows.length > 0) {
         return mapRowToUser(res.rows[0])
@@ -339,6 +396,11 @@ export async function updateUser(id: string, updates: Partial<LocalUser>): Promi
 
     if (updates.name !== undefined) existing.name = updates.name
     if (updates.email !== undefined) existing.email = updates.email
+    if (updates.local_name !== undefined) existing.local_name = updates.local_name
+    if (updates.display_name !== undefined) existing.display_name = updates.display_name
+    if (updates.supplier_id !== undefined) existing.supplier_id = updates.supplier_id
+    if (updates.is_active !== undefined) existing.is_active = updates.is_active
+    if (updates.timezone !== undefined) existing.timezone = updates.timezone
     if (updates.roles !== undefined) existing.roles = updates.roles
     if (updates.is_admin !== undefined) existing.is_admin = updates.is_admin
     existing.updated_at = now
@@ -374,8 +436,8 @@ export async function bootstrapAdminUser(data: {
 
       const id = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
       const insertRes = await client.query(
-        `INSERT INTO local_users (id, oidc_issuer, oidc_subject, name, email, roles, is_admin, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, true, $7, $7)
+        `INSERT INTO local_users (id, oidc_issuer, oidc_subject, name, email, local_name, display_name, supplier_id, is_active, roles, is_admin, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $4, $4, $2, true, $6, true, $7, $7)
          ON CONFLICT (oidc_issuer, oidc_subject)
          DO UPDATE SET
            roles = '["admin"]'::jsonb,
@@ -427,6 +489,11 @@ export async function bootstrapAdminUser(data: {
         oidc_subject: data.oidc_subject,
         name,
         email,
+        local_name: name,
+        display_name: name,
+        supplier_id: data.oidc_issuer,
+        is_active: true,
+        timezone: '',
         roles: ['admin'],
         is_admin: true,
         created_at: now,

@@ -6,9 +6,7 @@ function emptyProofOfCompetency(): ProofOfCompetency {
   return {
     name: '',
     description: '',
-    assessmentType: 'written',
-    multipleChoice: false,
-    freeText: false,
+    answerFormats: [],
     assignmentScope: 'individual',
     durationMinutes: undefined,
     competencyIds: [],

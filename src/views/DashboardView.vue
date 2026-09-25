@@ -30,6 +30,7 @@ const dashboardCards = [
   { title: 'Taxonomy', subtitle: 'Competencies, levels, and proofs', icon: 'mdi-sitemap', to: '/taxonomy' },
   { title: 'Scheduling & Constraints', subtitle: 'Semester scheduling', icon: 'mdi-calendar-clock', to: '/schedule' },
   { title: 'Rooms & Locations', subtitle: 'Room and location management', icon: 'mdi-door-open', to: '/rooms' },
+  { title: 'Availability', subtitle: 'Lecturer and room availability', icon: 'mdi-calendar-check', to: '/availability' },
   { title: 'Conflicts', subtitle: 'Conflict detection and resolution', icon: 'mdi-alert-circle', to: '/conflicts' },
   { title: 'Reports', subtitle: 'Export and reporting', icon: 'mdi-file-chart', to: '/reports' },
 ]

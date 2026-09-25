@@ -83,6 +83,18 @@ usersRouter.patch('/:id', authenticateLocalUser, requireAdmin, async (req: Authe
     if (body.email !== undefined) {
       updates.email = String(body.email).trim()
     }
+    if (body.local_name !== undefined) {
+      updates.local_name = String(body.local_name).trim()
+    }
+    if (body.display_name !== undefined) {
+      updates.display_name = String(body.display_name).trim()
+    }
+    if (body.is_active !== undefined) {
+      updates.is_active = !!body.is_active
+    }
+    if (body.timezone !== undefined) {
+      updates.timezone = String(body.timezone).trim()
+    }
     if (body.is_admin !== undefined) {
       updates.is_admin = !!body.is_admin
       if (updates.is_admin) {
@@ -94,8 +106,17 @@ usersRouter.patch('/:id', authenticateLocalUser, requireAdmin, async (req: Authe
     }
 
     const updated = await updateUser(id, updates)
+      .catch(err => {
+        if (err.message === 'Cannot remove the last remaining administrator') {
+          res.status(409).json({ error: err.message })
+          return null
+        }
+        throw err
+      })
     if (!updated) {
-      res.status(404).json({ error: 'User not found' })
+      if (!res.headersSent) {
+        res.status(404).json({ error: 'User not found' })
+      }
       return
     }
     res.json(updated)

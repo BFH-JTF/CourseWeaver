@@ -258,12 +258,23 @@ components:
           - rooms
           - locations
           - competencies
+          - competency_matrices
+          - matrix_competencies
+          - proofs_of_competency
           - curriculum_versions
-          - study_programs
+          - departments
+          - programs
+          - degrees
+          - classes
           - modules
-          - semesters
           - lessons
+          - semesters
+          - weeks
+          - schedule_entries
           - lecturers
+          - lecturer_availability
+          - room_availability
+          - scheduling_rules
           - taxonomy_items
         example: rooms
 

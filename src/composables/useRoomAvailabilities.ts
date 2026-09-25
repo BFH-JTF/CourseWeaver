@@ -5,6 +5,7 @@ import type { RoomAvailability } from '@/types/roomAvailability'
 function emptyRoomAvailability(): RoomAvailability {
   return {
     roomId: '',
+    weekId: undefined,
     weekday: 'monday',
     startTime: '08:00',
     endTime: '12:00',

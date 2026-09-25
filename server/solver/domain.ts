@@ -13,6 +13,7 @@ export interface Instructor {
   id: string
   name: string
   userId?: string
+  departmentId?: string
   moduleIds?: string[]
 }
 
@@ -25,23 +26,31 @@ export interface Room {
 export interface RoomAvailability {
   id: string
   roomId: string
+  weekId?: string
   weekday: string
   startTime: string
   endTime: string
 }
 
-export interface WeekLecture {
-  id: string
-  moduleIds: string[]
-  roomId: string
-  weekday: string
-  startTime: string
-  endTime: string
-}
-
-export interface SemesterSchedule {
+export interface Week {
   id: string
   semesterId: string
+  semesterWeek: number
+  startDate: string
+  endDate: string
+  daysOff?: string[]
+}
+
+export interface ScheduleEntry {
+  id: string
+  weekId: string
+  moduleIds: string[]
+  roomIds: string[]
+  classIds: string[]
+  lecturerIds: string[]
+  weekday: string
+  startTime: string
+  endTime: string
 }
 
 export interface OnCampusDay {
@@ -79,9 +88,6 @@ export interface Semester {
   code?: string
   startDate: string
   endDate: string
-  daysOff?: string[]
-  curriculumVersionId?: string
-  schedulingRulesId?: string
 }
 
 export interface CurriculumVersion {

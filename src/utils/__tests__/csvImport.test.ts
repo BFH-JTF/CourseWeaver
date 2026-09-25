@@ -141,10 +141,10 @@ const roomMappedRows = roomParsed.rows.map(row => {
 const rooms = roomConfig.transform(roomMappedRows) as Room[]
 assert.strictEqual(rooms.length, 1)
 assert.strictEqual(rooms[0]!.name, 'Lab 101')
-assert.strictEqual(rooms[0]!.room_number, '101')
+assert.strictEqual(rooms[0]!.roomNumber, '101')
 assert.strictEqual(rooms[0]!.floor, 1)
-assert.strictEqual(rooms[0]!.room_type, 'computer_lab')
-assert.strictEqual(rooms[0]!.capacity.seats, 30)
+assert.strictEqual(rooms[0]!.roomType, 'computer_lab')
+assert.strictEqual(rooms[0]!.capacity, 30)
 assert.strictEqual(rooms[0]!.equipment?.projector, true)
 assert.strictEqual(rooms[0]!.accessibility.step_free_access, true)
 console.log('✓ Room mapping and transformation passed')
@@ -185,30 +185,28 @@ const headerlessMappedRows = headerlessParsed.rows.map(row => {
 const headerlessRooms = roomConfig.transform(headerlessMappedRows) as Room[]
 assert.strictEqual(headerlessRooms.length, 2)
 assert.strictEqual(headerlessRooms[0]!.name, 'Auditorium Maximum')
-assert.strictEqual(headerlessRooms[0]!.room_number, 'AUD-100')
+assert.strictEqual(headerlessRooms[0]!.roomNumber, 'AUD-100')
 assert.strictEqual(headerlessRooms[0]!.floor, 0)
-assert.strictEqual(headerlessRooms[0]!.room_type, 'lecture_hall')
-assert.strictEqual(headerlessRooms[0]!.capacity.seats, 250)
+assert.strictEqual(headerlessRooms[0]!.roomType, 'lecture_hall')
+assert.strictEqual(headerlessRooms[0]!.capacity, 250)
 assert.strictEqual(headerlessRooms[1]!.name, 'Lab Beta')
-assert.strictEqual(headerlessRooms[1]!.room_number, 'B-201')
+assert.strictEqual(headerlessRooms[1]!.roomNumber, 'B-201')
 assert.strictEqual(headerlessRooms[1]!.floor, 2)
-assert.strictEqual(headerlessRooms[1]!.room_type, 'computer_lab')
-assert.strictEqual(headerlessRooms[1]!.capacity.seats, 40)
+assert.strictEqual(headerlessRooms[1]!.roomType, 'computer_lab')
+assert.strictEqual(headerlessRooms[1]!.capacity, 40)
 console.log('✓ Headerless CSV parsing and mapping passed')
 
 // 9. Test Proofs of Competency mapping & transformation
-const proofCsv = `name,description,assessment_type,multiple_choice,free_text,assignment_type,duration_minutes
-Midterm Exam,Covers modules 1 to 4,written,true,true,individual,90
-Project Presentation,Group project pitch and demo,oral,false,false,group,30`
+const proofCsv = `name,description,answer_formats,assignment_type,duration_minutes
+Midterm Exam,Covers modules 1 to 4,"multiple choice, free text",individual,90
+Project Presentation,Group project pitch and demo,oral,group,30`
 
 const proofParsed = parseCsv(proofCsv)
 const proofConfig = IMPORT_CONFIGS.proofs_of_competency
 const proofMapping = autoMapColumns(proofParsed.headers, proofConfig.fields)
 assert.strictEqual(proofMapping.name, 'name')
 assert.strictEqual(proofMapping.description, 'description')
-assert.strictEqual(proofMapping.assessmentType, 'assessment_type')
-assert.strictEqual(proofMapping.multipleChoice, 'multiple_choice')
-assert.strictEqual(proofMapping.freeText, 'free_text')
+assert.strictEqual(proofMapping.answerFormats, 'answer_formats')
 assert.strictEqual(proofMapping.assignmentScope, 'assignment_type')
 assert.strictEqual(proofMapping.durationMinutes, 'duration_minutes')
 
@@ -225,16 +223,12 @@ const proofMappedRows = proofParsed.rows.map(row => {
 const proofs = proofConfig.transform(proofMappedRows) as ProofOfCompetency[]
 assert.strictEqual(proofs.length, 2)
 assert.strictEqual(proofs[0]!.name, 'Midterm Exam')
-assert.strictEqual(proofs[0]!.assessmentType, 'written')
-assert.strictEqual(proofs[0]!.multipleChoice, true)
-assert.strictEqual(proofs[0]!.freeText, true)
+assert.deepStrictEqual(proofs[0]!.answerFormats, ['multipleChoice', 'freeText'])
 assert.strictEqual(proofs[0]!.assignmentScope, 'individual')
 assert.strictEqual(proofs[0]!.durationMinutes, 90)
 
 assert.strictEqual(proofs[1]!.name, 'Project Presentation')
-assert.strictEqual(proofs[1]!.assessmentType, 'oral')
-assert.strictEqual(proofs[1]!.multipleChoice, false)
-assert.strictEqual(proofs[1]!.freeText, false)
+assert.deepStrictEqual(proofs[1]!.answerFormats, ['oral'])
 assert.strictEqual(proofs[1]!.assignmentScope, 'group')
 assert.strictEqual(proofs[1]!.durationMinutes, 30)
 console.log('✓ Proof of Competency auto-mapping and transformation passed')

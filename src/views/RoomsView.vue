@@ -36,14 +36,14 @@
           hover
           items-per-page="15"
         >
-          <template #item.room_type="{ item }">
-            {{ formatRoomType(item.room_type) }}
+          <template #item.roomType="{ item }">
+            {{ formatRoomType(item.roomType) }}
           </template>
           <template #item.location_label="{ item }">
-            {{ getLocationLabel(item.location_id) }}
+            {{ getLocationLabel(item.locationId) }}
           </template>
-          <template #item.capacity.seats="{ item }">
-            {{ item.capacity?.seats ?? '-' }}
+          <template #item.capacity="{ item }">
+            {{ item.capacity ?? '-' }}
           </template>
           <template #item.accessibility.step_free_access="{ item }">
             <v-icon :color="item.accessibility?.step_free_access ? 'success' : 'default'">
@@ -226,11 +226,11 @@ const snackbarColor = ref('success')
 
 const roomHeaders = [
   { title: 'Name', key: 'name', sortable: true },
-  { title: 'Type', key: 'room_type', sortable: true },
+  { title: 'Type', key: 'roomType', sortable: true },
   { title: 'Location', key: 'location_label', sortable: true },
   { title: 'Floor', key: 'floor', sortable: true },
-  { title: 'Room no.', key: 'room_number', sortable: true },
-  { title: 'Seats', key: 'capacity.seats', sortable: true },
+  { title: 'Room no.', key: 'roomNumber', sortable: true },
+  { title: 'Seats', key: 'capacity', sortable: true },
   { title: 'Step-free', key: 'accessibility.step_free_access', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '100px' },
 ]
@@ -266,11 +266,11 @@ const filteredRooms = computed(() => {
   const q = roomSearch.value.toLowerCase()
   return rooms.value.filter(r =>
     r.name.toLowerCase().includes(q) ||
-    (r.room_type ?? '').toLowerCase().includes(q) ||
+    (r.roomType ?? '').toLowerCase().includes(q) ||
     (r.owner ?? '').toLowerCase().includes(q) ||
-    getLocationLabel(r.location_id).toLowerCase().includes(q) ||
+    getLocationLabel(r.locationId).toLowerCase().includes(q) ||
     String(r.floor).toLowerCase().includes(q) ||
-    (r.room_number ?? '').toLowerCase().includes(q)
+    (r.roomNumber ?? '').toLowerCase().includes(q)
   )
 })
 
@@ -312,7 +312,7 @@ async function handleCreateLocationFromRoom(location: Location) {
   try {
     await addLocation(location)
     if (location.id) {
-      editRoom.value = { ...editRoom.value!, location_id: location.id }
+      editRoom.value = { ...editRoom.value!, locationId: location.id }
     }
     showSnackbar('Location created')
   } catch {

@@ -17,7 +17,7 @@ import { authRouter } from './auth'
 import { usersRouter } from './users'
 import { AuthenticatedRequest, extractOidcClaims } from '../auth'
 
-const SUPERUSER_TABLES = new Set(['curriculum_versions', 'semesters', 'lessons', 'lecturers', 'semester_schedules', 'week_lectures'])
+const SUPERUSER_TABLES = new Set(['curriculum_versions', 'semesters', 'lessons', 'lecturers', 'weeks', 'schedule_entries'])
 
 export const apiRouter = Router()
 

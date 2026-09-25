@@ -29,6 +29,14 @@
     </v-row>
 
     <v-tabs v-model="activeTab">
+      <v-tab value="weeks">
+        <v-icon start>mdi-calendar-week</v-icon>
+        Weeks
+      </v-tab>
+      <v-tab value="entries">
+        <v-icon start>mdi-calendar-clock-outline</v-icon>
+        Schedule Entries
+      </v-tab>
       <v-tab value="availability">
         <v-icon start>mdi-calendar-clock</v-icon>
         Availability
@@ -101,6 +109,135 @@
         </template>
       </v-window-item>
 
+      <!-- Weeks Tab -->
+      <v-window-item value="weeks">
+        <v-alert v-if="!selectedSemesterId" type="info" variant="tonal" class="mb-4" density="compact">
+          Select a semester above to manage its calendar weeks.
+        </v-alert>
+
+        <template v-else>
+          <v-row class="align-center mb-4">
+            <v-col cols="12" sm="6" class="d-flex ga-2">
+              <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddWeek">
+                Add Week
+              </v-btn>
+              <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('weeks')">
+                Import CSV
+              </v-btn>
+            </v-col>
+          </v-row>
+
+          <v-data-table
+            :headers="weekHeaders"
+            :items="semesterWeeks"
+            :sort-by="weekSortBy"
+            @update:sort-by="weekSortBy = $event"
+            hover
+            items-per-page="15"
+          >
+            <template #item.semesterWeek="{ item }">
+              <span class="font-weight-medium">{{ item.semesterWeek }}</span>
+            </template>
+            <template #item.daysOff="{ item }">
+              <div v-if="item.daysOff?.length" class="d-flex flex-wrap ga-1">
+                <v-chip v-for="day in item.daysOff" :key="day" size="x-small" variant="tonal" color="warning">
+                  {{ day }}
+                </v-chip>
+              </div>
+              <span v-else class="text-medium-emphasis text-caption">—</span>
+            </template>
+            <template #item.actions="{ item }">
+              <v-btn icon variant="text" size="small" @click="openEditWeek(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteWeek(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+          </v-data-table>
+        </template>
+      </v-window-item>
+
+      <!-- Schedule Entries Tab -->
+      <v-window-item value="entries">
+        <v-alert v-if="!selectedSemesterId" type="info" variant="tonal" class="mb-4" density="compact">
+          Select a semester above to manage schedule entries.
+        </v-alert>
+
+        <template v-else>
+          <v-row class="align-center mb-4">
+            <v-col cols="12" sm="6" class="d-flex ga-2">
+              <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddEntry">
+                Add Entry
+              </v-btn>
+              <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('schedule_entries')">
+                Import CSV
+              </v-btn>
+            </v-col>
+          </v-row>
+
+          <v-data-table
+            :headers="entryHeaders"
+            :items="semesterEntries"
+            :sort-by="entrySortBy"
+            @update:sort-by="entrySortBy = $event"
+            hover
+            items-per-page="15"
+          >
+            <template #item.weekId="{ item }">
+              {{ formatWeek(item.weekId) }}
+            </template>
+            <template #item.moduleIds="{ item }">
+              <div v-if="item.moduleIds?.length" class="d-flex flex-wrap ga-1">
+                <v-chip v-for="id in item.moduleIds" :key="id" size="x-small" variant="tonal">
+                  {{ getModuleName(id) }}
+                </v-chip>
+              </div>
+              <span v-else class="text-medium-emphasis text-caption">Unassigned</span>
+            </template>
+            <template #item.roomIds="{ item }">
+              <div v-if="item.roomIds?.length" class="d-flex flex-wrap ga-1">
+                <v-chip v-for="id in item.roomIds" :key="id" size="x-small" variant="tonal" color="teal">
+                  {{ getRoomName(id) }}
+                </v-chip>
+              </div>
+              <span v-else class="text-medium-emphasis text-caption">Unassigned</span>
+            </template>
+            <template #item.classIds="{ item }">
+              <div v-if="item.classIds?.length" class="d-flex flex-wrap ga-1">
+                <v-chip v-for="id in item.classIds" :key="id" size="x-small" variant="tonal" color="secondary">
+                  {{ getClassName(id) }}
+                </v-chip>
+              </div>
+              <span v-else class="text-medium-emphasis text-caption">Unassigned</span>
+            </template>
+            <template #item.lecturerIds="{ item }">
+              <div v-if="item.lecturerIds?.length" class="d-flex flex-wrap ga-1">
+                <v-chip v-for="id in item.lecturerIds" :key="id" size="x-small" variant="tonal" color="indigo">
+                  {{ getLecturerName(id) }}
+                </v-chip>
+              </div>
+              <span v-else class="text-medium-emphasis text-caption">Unassigned</span>
+            </template>
+            <template #item.weekday="{ item }">
+              {{ formatWeekday(item.weekday as Weekday) }}
+            </template>
+            <template #item.actions="{ item }">
+              <v-btn icon variant="text" size="small" @click="openEditEntry(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteEntry(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+          </v-data-table>
+        </template>
+      </v-window-item>
+
       <!-- Rules Tab -->
       <v-window-item value="rules">
         <v-alert v-if="!selectedSemesterId" type="info" variant="tonal" class="mb-4" density="compact">
@@ -138,8 +275,8 @@
             hover
             items-per-page="15"
           >
-            <template #item.constraintId="{ item }">
-              <code class="text-body-2">{{ item.constraintId }}</code>
+            <template #item.ruleType="{ item }">
+              <code class="text-body-2">{{ item.ruleType }}</code>
             </template>
             <template #item.category="{ item }">
               <v-chip
@@ -207,7 +344,28 @@
       v-model="availabilityDialogOpen"
       :availability-data="editingAvailability"
       :current-user-id="currentUserId"
+      :weeks="weeks"
       @save="handleSaveAvailability"
+    />
+
+    <!-- Week Form Dialog -->
+    <WeekFormDialog
+      v-model="weekDialogOpen"
+      :week-data="editingWeek"
+      :semesters="semesters"
+      @save="handleSaveWeek"
+    />
+
+    <!-- Schedule Entry Form Dialog -->
+    <ScheduleEntryFormDialog
+      v-model="entryDialogOpen"
+      :entry-data="editingEntry"
+      :weeks="semesterWeeks"
+      :modules="modules"
+      :rooms="rooms"
+      :classes="classes"
+      :lecturers="lecturers"
+      @save="handleSaveEntry"
     />
 
     <!-- Scheduling Rule Form Dialog -->
@@ -251,30 +409,42 @@ import { useCurriculumStore } from '@/stores/curriculum'
 import { useAuthStore } from '@/stores/auth'
 import { useAvailability } from '@/composables/useAvailability'
 import { useSchedulingRules } from '@/composables/useSchedulingRules'
+import { useWeeks } from '@/composables/useWeeks'
+import { useScheduleEntries } from '@/composables/useScheduleEntries'
+import { useClasses } from '@/composables/useClasses'
 import type { LecturerAvailability, SchedulingRule, Weekday } from '@/types/schedule'
+import type { Week } from '@/types/week'
+import type { ScheduleEntry } from '@/types/scheduleEntry'
 import { WEEKDAY_LABELS } from '@/types/schedule'
 import AvailabilityFormDialog from '@/components/AvailabilityFormDialog.vue'
 import SchedulingRuleFormDialog from '@/components/SchedulingRuleFormDialog.vue'
+import WeekFormDialog from '@/components/WeekFormDialog.vue'
+import ScheduleEntryFormDialog from '@/components/ScheduleEntryFormDialog.vue'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 
 const store = useCurriculumStore()
 const auth = useAuthStore()
-const { semesters } = storeToRefs(store)
+const { semesters, modules, rooms, lecturers } = storeToRefs(store)
+const { classes, fetchClasses } = useClasses()
 const { availabilities, fetchAvailabilities, addAvailability, updateAvailability, removeAvailability } = useAvailability()
 const { rules, fetchRules, addRule, updateRule, removeRule } = useSchedulingRules()
+const { weeks, fetchWeeks, addWeek, updateWeek, removeWeek } = useWeeks()
+const { scheduleEntries, fetchScheduleEntries, addScheduleEntry, updateScheduleEntry, removeScheduleEntry } = useScheduleEntries()
 
 const currentUserId = computed(() => auth.localUser?.id || auth.localUser?.oidc_subject || '')
 
 const selectedSemesterId = ref('')
-const activeTab = ref<'availability' | 'rules'>('availability')
+const activeTab = ref<'weeks' | 'entries' | 'availability' | 'rules'>('availability')
 const availabilitySearch = ref('')
 const ruleSearch = ref('')
 const availabilitySortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'lecturerId', order: 'asc' }])
-const ruleSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'constraintId', order: 'asc' }])
+const ruleSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'ruleType', order: 'asc' }])
+const weekSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'semesterWeek', order: 'asc' }])
+const entrySortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'weekday', order: 'asc' }])
 
 const semesterItems = computed(() => {
   const items = semesters.value.map(s => ({
-    title: s.name || s.identifier,
+    title: s.name || s.code,
     value: s._id || s.id || '',
     subtitle: `${s.startDate} – ${s.endDate}`,
   }))
@@ -294,6 +464,63 @@ const semesterRules = computed(() => {
   return rules.value.filter(r => r.semesterId === selectedSemesterId.value)
 })
 
+const semesterWeeks = computed(() => {
+  if (!selectedSemesterId.value) return []
+  return weeks.value
+    .filter(w => w.semesterId === selectedSemesterId.value)
+    .sort((a, b) => a.semesterWeek - b.semesterWeek)
+})
+
+const semesterEntries = computed(() => {
+  if (!selectedSemesterId.value) return []
+  const weekIds = new Set(weeks.value.filter(w => w.semesterId === selectedSemesterId.value).map(w => w.id || w._id))
+  return scheduleEntries.value.filter(e => weekIds.has(e.weekId))
+})
+
+const weekHeaders = [
+  { title: 'Week', key: 'semesterWeek', sortable: true },
+  { title: 'Start', key: 'startDate', sortable: true },
+  { title: 'End', key: 'endDate', sortable: true },
+  { title: 'Days Off', key: 'daysOff', sortable: false },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end' as const },
+]
+
+const entryHeaders = [
+  { title: 'Week', key: 'weekId', sortable: true },
+  { title: 'Day', key: 'weekday', sortable: true },
+  { title: 'Start', key: 'startTime', sortable: true },
+  { title: 'End', key: 'endTime', sortable: true },
+  { title: 'Modules', key: 'moduleIds', sortable: false },
+  { title: 'Rooms', key: 'roomIds', sortable: false },
+  { title: 'Classes', key: 'classIds', sortable: false },
+  { title: 'Lecturers', key: 'lecturerIds', sortable: false },
+  { title: 'Actions', key: 'actions', sortable: false, align: 'end' as const },
+]
+
+function formatWeek(weekId: string): string {
+  const w = weeks.value.find(x => (x.id || x._id) === weekId)
+  return w ? `Week ${w.semesterWeek}` : weekId
+}
+
+function getModuleName(moduleId: string): string {
+  const m = modules.value.find(x => (x.id || (x as any)._id) === moduleId)
+  return m ? (m.code || m.name) : moduleId
+}
+
+function getRoomName(roomId: string): string {
+  const r = rooms.value.find(x => x.id === roomId)
+  return r ? r.name : roomId
+}
+
+function getClassName(classId: string): string {
+  const c = classes.value.find(x => (x.id || x._id) === classId)
+  return c ? (c.name || c.code || classId) : classId
+}
+function getLecturerName(lecturerId: string): string {
+  const l = lecturers.value.find(x => (x.id || x._id) === lecturerId)
+  return l ? l.name : lecturerId
+}
+
 const availabilityHeaders = [
   { title: 'Weekday', key: 'weekday', sortable: true },
   { title: 'Start', key: 'startTime', sortable: true },
@@ -302,7 +529,7 @@ const availabilityHeaders = [
 ]
 
 const ruleHeaders = [
-  { title: 'Rule ID', key: 'constraintId', sortable: true },
+  { title: 'Rule Type', key: 'ruleType', sortable: true },
   { title: 'Category', key: 'category', sortable: true },
   { title: 'Enabled', key: 'enabled', sortable: true },
   { title: 'Priority', key: 'weight', sortable: true },
@@ -324,7 +551,7 @@ const filteredRules = computed(() => {
   const q = ruleSearch.value?.toLowerCase() || ''
   if (!q) return semesterRules.value
   return semesterRules.value.filter(r =>
-    r.constraintId.toLowerCase().includes(q) ||
+    r.ruleType.toLowerCase().includes(q) ||
     (r.description || '').toLowerCase().includes(q) ||
     r.category.includes(q) ||
     (r.appliesTo || []).some(t => t.toLowerCase().includes(q))
@@ -398,10 +625,62 @@ async function handleSaveRule(rule: SchedulingRule) {
   }
 }
 
+// Week dialog
+const weekDialogOpen = ref(false)
+const editingWeek = ref<Week | null>(null)
+
+function openAddWeek() {
+  editingWeek.value = null
+  weekDialogOpen.value = true
+}
+
+function openEditWeek(item: Week) {
+  editingWeek.value = JSON.parse(JSON.stringify(item))
+  weekDialogOpen.value = true
+}
+
+async function handleSaveWeek(week: Week) {
+  try {
+    if (week._id || week.id) {
+      await updateWeek(week)
+    } else {
+      await addWeek(week)
+    }
+  } catch (e: any) {
+    console.error('Failed to save week:', e)
+  }
+}
+
+// Schedule entry dialog
+const entryDialogOpen = ref(false)
+const editingEntry = ref<ScheduleEntry | null>(null)
+
+function openAddEntry() {
+  editingEntry.value = null
+  entryDialogOpen.value = true
+}
+
+function openEditEntry(item: ScheduleEntry) {
+  editingEntry.value = JSON.parse(JSON.stringify(item))
+  entryDialogOpen.value = true
+}
+
+async function handleSaveEntry(entry: ScheduleEntry) {
+  try {
+    if (entry._id || entry.id) {
+      await updateScheduleEntry(entry)
+    } else {
+      await addScheduleEntry(entry)
+    }
+  } catch (e: any) {
+    console.error('Failed to save schedule entry:', e)
+  }
+}
+
 // Delete dialog
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
-type DeleteTarget = { type: 'availability'; id: string } | { type: 'rule'; id: string }
+type DeleteTarget = { type: 'availability' | 'rule' | 'week' | 'entry'; id: string }
 let deleteTarget: DeleteTarget | null = null
 
 function confirmDeleteAvailability(item: LecturerAvailability) {
@@ -412,7 +691,19 @@ function confirmDeleteAvailability(item: LecturerAvailability) {
 
 function confirmDeleteRule(item: SchedulingRule) {
   deleteTarget = { type: 'rule', id: item._id || item.id || '' }
-  deleteTargetName.value = item.constraintId
+  deleteTargetName.value = item.ruleType
+  deleteDialogOpen.value = true
+}
+
+function confirmDeleteWeek(item: Week) {
+  deleteTarget = { type: 'week', id: item._id || item.id || '' }
+  deleteTargetName.value = `Week ${item.semesterWeek}`
+  deleteDialogOpen.value = true
+}
+
+function confirmDeleteEntry(item: ScheduleEntry) {
+  deleteTarget = { type: 'entry', id: item._id || item.id || '' }
+  deleteTargetName.value = `this ${formatWeekday(item.weekday as Weekday)} entry`
   deleteDialogOpen.value = true
 }
 
@@ -420,8 +711,12 @@ async function executeDelete() {
   if (!deleteTarget) return
   if (deleteTarget.type === 'availability') {
     await removeAvailability(deleteTarget.id)
-  } else {
+  } else if (deleteTarget.type === 'rule') {
     await removeRule(deleteTarget.id)
+  } else if (deleteTarget.type === 'week') {
+    await removeWeek(deleteTarget.id)
+  } else {
+    await removeScheduleEntry(deleteTarget.id)
   }
   deleteTarget = null
   deleteDialogOpen.value = false
@@ -429,9 +724,9 @@ async function executeDelete() {
 
 // CSV Import
 const csvImportDialogOpen = ref(false)
-const csvImportType = ref<'availability' | 'scheduling_rules'>('availability')
+const csvImportType = ref<'availability' | 'scheduling_rules' | 'weeks' | 'schedule_entries'>('availability')
 
-function openCsvImport(type: 'availability' | 'scheduling_rules') {
+function openCsvImport(type: 'availability' | 'scheduling_rules' | 'weeks' | 'schedule_entries') {
   csvImportType.value = type
   csvImportDialogOpen.value = true
 }
@@ -439,6 +734,10 @@ function openCsvImport(type: 'availability' | 'scheduling_rules') {
 async function handleCsvImported() {
   if (csvImportType.value === 'availability') {
     await fetchAvailabilities()
+  } else if (csvImportType.value === 'weeks') {
+    await fetchWeeks()
+  } else if (csvImportType.value === 'schedule_entries') {
+    await fetchScheduleEntries()
   } else {
     await fetchRules()
   }
@@ -446,7 +745,13 @@ async function handleCsvImported() {
 
 onMounted(() => {
   store.fetchSemesters()
+  store.fetchModules()
+  store.fetchRooms()
+  store.fetchLecturers()
   fetchAvailabilities()
   fetchRules()
+  fetchWeeks()
+  fetchScheduleEntries()
+  fetchClasses()
 })
 </script>

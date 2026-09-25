@@ -21,7 +21,7 @@ export interface TimetableModule {
 export interface TimetableRoom {
   _id: string
   name: string
-  capacity: { seats: number }
+  capacity: number
 }
 
 export interface TimetableBlock {
@@ -139,7 +139,7 @@ export async function solveTimetable(
       if (!mod?.expected_students) return
       const forbiddenRooms: number[] = []
       rooms.forEach((r, rIdx) => {
-        if (r.capacity.seats < mod.expected_students!) forbiddenRooms.push(rIdx)
+        if (r.capacity < mod.expected_students!) forbiddenRooms.push(rIdx)
       })
       if (forbiddenRooms.length) {
         const allowed = Array.from({ length: numRooms }, (_, i) => i).filter((i) => !forbiddenRooms.includes(i))

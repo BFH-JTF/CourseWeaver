@@ -18,10 +18,11 @@ export interface PostgresConfig {
 
 export const EntityTables = {
   CURRICULUM_VERSION: 'curriculum_versions',
-  STUDY_PROGRAM: 'study_programs',
   MODULE: 'modules',
   SEMESTER: 'semesters',
   LESSON: 'lessons',
+  WEEK: 'weeks',
+  SCHEDULE_ENTRY: 'schedule_entries',
   ROOM: 'rooms',
   LOCATION: 'locations',
   LECTURER: 'lecturers',
@@ -30,16 +31,13 @@ export const EntityTables = {
   SCHEDULING_RULE: 'scheduling_rules',
   TAXONOMY: 'taxonomy_items',
   COMPETENCY: 'competencies',
+  COMPETENCY_MATRIX: 'competency_matrices',
   MATRIX_COMPETENCY: 'matrix_competencies',
   PROOF_OF_COMPETENCY: 'proofs_of_competency',
-  /** @deprecated Use PROOF_OF_COMPETENCY instead */
-  PROOF_OF_KNOWLEDGE: 'proofs_of_knowledge',
   DEPARTMENT: 'departments',
   PROGRAM: 'programs',
   DEGREE: 'degrees',
   CLASS: 'classes',
-  WEEK_LECTURE: 'week_lectures',
-  SEMESTER_SCHEDULE: 'semester_schedules',
 } as const
 
 export type EntityTableName = (typeof EntityTables)[keyof typeof EntityTables]

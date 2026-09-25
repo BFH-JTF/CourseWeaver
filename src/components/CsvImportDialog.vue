@@ -198,7 +198,7 @@
                   accept=".csv,text/csv,text/plain"
                   class="d-none"
                   @change="handleFileSelected"
-                />
+                >
                 <v-icon size="40" color="primary" class="mb-2">mdi-cloud-upload</v-icon>
                 <div class="text-body-1 font-weight-medium">
                   {{ fileName || 'Click or drag & drop a CSV file here' }}
@@ -782,12 +782,11 @@ function transformCsvRowsWithMapping(rows: Record<string, string>[]): Record<str
 
 function formatPreviewCell(row: any, key: string): string {
   if (!row) return ''
-  // Support nested lookups e.g. capacity.seats
+  // Support nested lookups e.g. accessibility.step_free_access
   const parts = key.split('_')
   let val = row[key]
   if (val === undefined) {
-    if (key === 'capacity_seats') val = row.capacity?.seats
-    else if (key === 'accessibility_step_free_access') val = row.accessibility?.step_free_access
+    if (key === 'accessibility_step_free_access') val = row.accessibility?.step_free_access
     else if (key.startsWith('layout_')) val = row.layout?.[parts.slice(1).join('_')]
     else if (key.startsWith('equipment_')) val = row.equipment?.[parts.slice(1).join('_')]
     else if (key.startsWith('connectivity_')) val = row.connectivity?.[parts.slice(1).join('_')]

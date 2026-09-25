@@ -45,23 +45,15 @@
             class="mb-3"
           />
 
-          <v-text-field
-            v-model.number="form.startingYear"
-            label="Starting Year"
+          <v-autocomplete
+            v-model="form.degreeId"
+            :items="degreeItems"
+            item-title="title"
+            item-value="value"
+            label="Degree of the displayed curriculum"
             variant="outlined"
             density="compact"
-            type="number"
-            placeholder="e.g. 2024"
-            class="mb-3"
-          />
-
-          <v-text-field
-            v-model.number="form.size"
-            label="Class Size"
-            variant="outlined"
-            density="compact"
-            type="number"
-            placeholder="e.g. 30"
+            clearable
             class="mb-3"
           />
 
@@ -70,7 +62,7 @@
             :items="programs"
             item-title="name"
             item-value="id"
-            label="Programs"
+            label="Programs of the displayed curriculum"
             variant="outlined"
             density="compact"
             multiple
@@ -88,6 +80,16 @@
             variant="outlined"
             density="compact"
             clearable
+            class="mb-3"
+          />
+
+          <v-text-field
+            v-model.number="form.size"
+            label="Class Size"
+            variant="outlined"
+            density="compact"
+            type="number"
+            placeholder="e.g. 30"
             class="mb-3"
           />
 
@@ -124,7 +126,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { ClassEntity } from '@/types/curriculumClass'
-import type { Program } from '@/types/curriculum'
+import type { Degree, Program } from '@/types/curriculum'
 import type { Semester } from '@/stores/curriculum'
 import { emptyClass } from '@/composables/useClasses'
 
@@ -132,6 +134,7 @@ const props = defineProps<{
   modelValue: boolean
   classData?: ClassEntity
   programs: Program[]
+  degrees: Degree[]
   semesters: Semester[]
 }>()
 
@@ -146,7 +149,13 @@ const form = ref<ClassEntity>(JSON.parse(JSON.stringify(emptyClass())))
 const formRef = ref()
 
 const semesterItems = computed(() =>
-  (props.semesters || []).map(s => ({ id: s._id || s.id, title: s.name || s.identifier || '' }))
+  (props.semesters || []).map(s => ({ id: s._id || s.id, title: s.name || s.code || '' }))
+)
+
+const degreeItems = computed(() =>
+  (props.degrees || [])
+    .map(d => ({ title: d.name || d.id || 'Unnamed', value: d.id }))
+    .filter(d => d.value)
 )
 
 watch(() => props.modelValue, (isOpen) => {

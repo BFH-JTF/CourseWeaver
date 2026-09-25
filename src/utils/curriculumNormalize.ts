@@ -1,4 +1,5 @@
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
+import type { Room, RoomType } from '@/types/room'
 
 /**
  * Curriculum entities carry several historical spellings of the same field
@@ -28,4 +29,26 @@ export function normalizeDegree(degree: Degree): Degree {
 export function normalizeModule(mod: Module): Module {
   const degreeIDs = mod.DegreeIDs ?? mod.degreeIDs ?? mod.degreeIds ?? []
   return syncUrl({ ...mod, DegreeIDs: degreeIDs, degreeIDs, degreeIds: degreeIDs })
+}
+
+/**
+ * Rooms were previously stored with snake_case top-level keys and a capacity
+ * object; the ERD now defines camelCase keys and a flat numeric capacity.
+ * Legacy snake_case rows are migrated on read; camelCase keys win.
+ */
+export function normalizeRoom(room: any): Room {
+  const r = { ...room }
+  const roomType = (r.roomType ?? r.room_type ?? 'other') as RoomType
+  const locationId = r.locationId ?? r.location_id
+  const roomNumber = r.roomNumber ?? r.room_number ?? ''
+  let capacity = r.capacity
+  if (typeof capacity === 'object' && capacity !== null) {
+    capacity = Number((capacity as any).seats) || 0
+  }
+  capacity = Number(capacity) || 0
+  delete r.room_type
+  delete r.location_id
+  delete r.room_number
+  if ('availability' in r) delete r.availability
+  return { ...r, roomType, locationId, roomNumber, capacity } as Room
 }

@@ -1,20 +1,18 @@
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
+import { normalizeRoom } from '@/utils/curriculumNormalize'
 
 function emptyRoom(): Room {
   return {
     name: '',
-    room_type: 'classroom',
+    roomType: 'classroom',
     floor: 0,
-    room_number: '',
-    capacity: {
-      seats: 0,
-    },
+    roomNumber: '',
+    capacity: 0,
     accessibility: {
       step_free_access: false,
     },
-    availability: {},
   }
 }
 
@@ -32,19 +30,16 @@ function csvToRoom(obj: Record<string, string>): Room {
   room.name = obj.name ?? ''
   const rt = obj.room_type ?? ''
   if (['lecture_hall', 'classroom', 'computer_lab', 'laboratory', 'other'].includes(rt)) {
-    room.room_type = rt as Room['room_type']
+    room.roomType = rt as Room['roomType']
   }
   room.owner = obj.owner || undefined
-  if (obj.location_id) room.location_id = obj.location_id
+  if (obj.location_id) room.locationId = obj.location_id
   const floorVal = obj.floor ?? ''
   const floorNum = Number(floorVal)
   room.floor = isNaN(floorNum) ? floorVal : floorNum
-  room.room_number = obj.room_number ?? ''
+  room.roomNumber = obj.room_number ?? ''
 
-  room.capacity.seats = Number(obj.capacity_seats) || 0
-  if (obj.capacity_accessible_seats) room.capacity.accessible_seats = Number(obj.capacity_accessible_seats) || undefined
-  if (obj.capacity_desks) room.capacity.desks = Number(obj.capacity_desks) || undefined
-  if (obj.capacity_standing_capacity) room.capacity.standing_capacity = Number(obj.capacity_standing_capacity) || undefined
+  room.capacity = Number(obj.capacity_seats) || 0
 
   if (obj.layout_type) {
     const lt = obj.layout_type
@@ -121,7 +116,7 @@ export function useRooms() {
     loading.value = true
     error.value = null
     try {
-      rooms.value = await fetchEntities<Room>(EntityTables.ROOM)
+      rooms.value = (await fetchEntities<Room>(EntityTables.ROOM)).map(normalizeRoom)
     } catch (e: any) {
       error.value = e.message
     } finally {

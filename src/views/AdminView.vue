@@ -84,6 +84,15 @@
                 <v-icon start size="14">{{ user.is_admin ? 'mdi-shield-crown' : 'mdi-account' }}</v-icon>
                 {{ user.is_admin ? 'Administrator' : 'Standard User' }}
               </v-chip>
+              <v-chip
+                v-if="user.is_active === false"
+                color="error"
+                size="x-small"
+                variant="tonal"
+                class="font-weight-bold"
+              >
+                Inactive
+              </v-chip>
             </td>
             <td class="text-caption text-medium-emphasis">
               {{ formatDate(user.created_at) }}
@@ -100,18 +109,25 @@
                   <v-icon start size="16">mdi-account-edit</v-icon>
                   Edit
                 </v-btn>
-                <v-btn
-                  :color="user.is_admin ? 'warning' : 'default'"
-                  variant="outlined"
-                  size="small"
-                  @click="toggleAdminRole(user)"
-                  :loading="updatingId === user.id"
-                >
-                  <v-icon start size="16">
-                    {{ user.is_admin ? 'mdi-account-arrow-down' : 'mdi-shield-plus' }}
-                  </v-icon>
-                  {{ user.is_admin ? 'Revoke Admin' : 'Grant Admin' }}
-                </v-btn>
+                <template v-if="isLastAdmin(user)">
+                  <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
+                    Last Admin
+                  </v-chip>
+                </template>
+                <template v-else>
+                  <v-btn
+                    :color="user.is_admin ? 'warning' : 'default'"
+                    variant="outlined"
+                    size="small"
+                    @click="toggleAdminRole(user)"
+                    :loading="updatingId === user.id"
+                  >
+                    <v-icon start size="16">
+                      {{ user.is_admin ? 'mdi-account-arrow-down' : 'mdi-shield-plus' }}
+                    </v-icon>
+                    {{ user.is_admin ? 'Revoke Admin' : 'Grant Admin' }}
+                  </v-btn>
+                </template>
               </div>
             </td>
           </tr>
@@ -149,9 +165,9 @@
           <v-form ref="editFormRef" @submit.prevent="saveUser">
             <v-text-field
               v-model="editName"
-              label="Local Username / Display Name"
-              placeholder="e.g. jdoe or Jane Doe"
-              hint="Locally used username within CourseWeaver"
+              label="Name"
+              placeholder="e.g. Jane Doe"
+              hint="Fallback name kept for compatibility"
               persistent-hint
               :rules="[usernameRule]"
               variant="outlined"
@@ -159,6 +175,30 @@
               prepend-inner-icon="mdi-account"
               class="mb-3"
               required
+            />
+
+            <v-text-field
+              v-model="editLocalName"
+              label="Local Name"
+              placeholder="e.g. jdoe"
+              hint="Login handle within CourseWeaver"
+              persistent-hint
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-account-outline"
+              class="mb-3"
+            />
+
+            <v-text-field
+              v-model="editDisplayName"
+              label="Display Name"
+              placeholder="e.g. Jane Doe"
+              hint="Name shown in the UI"
+              persistent-hint
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-card-account-details-outline"
+              class="mb-3"
             />
 
             <v-text-field
@@ -174,12 +214,34 @@
               class="mb-3"
             />
 
+            <v-text-field
+              v-model="editTimezone"
+              label="Timezone"
+              placeholder="e.g. Europe/Zurich"
+              hint="IANA timezone name for calendar display"
+              persistent-hint
+              variant="outlined"
+              density="comfortable"
+              prepend-inner-icon="mdi-earth"
+              class="mb-3"
+            />
+
+            <v-checkbox
+              v-model="editIsActive"
+              label="Active"
+              color="primary"
+              density="compact"
+              hide-details
+              class="mb-2"
+            />
+
             <v-checkbox
               v-model="editIsAdmin"
               label="Administrator Privileges"
               color="primary"
               density="compact"
               hide-details
+              :disabled="editingUser ? isLastAdmin(editingUser) : false"
             />
           </v-form>
         </v-card-text>
@@ -220,8 +282,12 @@ const successMsg = ref('')
 const editDialogOpen = ref(false)
 const editingUser = ref<LocalUserProfile | null>(null)
 const editName = ref('')
+const editLocalName = ref('')
+const editDisplayName = ref('')
 const editEmail = ref('')
+const editTimezone = ref('')
 const editIsAdmin = ref(false)
+const editIsActive = ref(true)
 const savingUser = ref(false)
 const dialogError = ref('')
 const editFormRef = ref<any>(null)
@@ -254,6 +320,10 @@ function emailRule(val: string): boolean | string {
   return emailPattern.test(val.trim()) || 'Please enter a valid email address'
 }
 
+function isLastAdmin(user: LocalUserProfile): boolean {
+  return user.is_admin && users.value.filter(u => u.is_admin).length <= 1
+}
+
 async function fetchUsers() {
   loading.value = true
   error.value = ''
@@ -275,8 +345,12 @@ async function fetchUsers() {
 function openEditDialog(user: LocalUserProfile) {
   editingUser.value = user
   editName.value = user.name || ''
+  editLocalName.value = user.local_name || ''
+  editDisplayName.value = user.display_name || ''
   editEmail.value = user.email || ''
+  editTimezone.value = user.timezone || ''
   editIsAdmin.value = !!user.is_admin
+  editIsActive.value = user.is_active !== false
   dialogError.value = ''
   editDialogOpen.value = true
 }
@@ -285,8 +359,12 @@ function closeEditDialog() {
   editDialogOpen.value = false
   editingUser.value = null
   editName.value = ''
+  editLocalName.value = ''
+  editDisplayName.value = ''
   editEmail.value = ''
+  editTimezone.value = ''
   editIsAdmin.value = false
+  editIsActive.value = true
   dialogError.value = ''
 }
 
@@ -302,6 +380,11 @@ async function saveUser() {
   const emailValidation = emailRule(editEmail.value)
   if (emailValidation !== true) {
     dialogError.value = typeof emailValidation === 'string' ? emailValidation : 'Invalid email'
+    return
+  }
+
+  if (isLastAdmin(editingUser.value) && !editIsAdmin.value) {
+    dialogError.value = 'Cannot remove the last remaining administrator'
     return
   }
 
@@ -324,7 +407,11 @@ async function saveUser() {
       headers: auth.getAuthHeaders(),
       body: JSON.stringify({
         name: trimmedName,
+        local_name: editLocalName.value.trim(),
+        display_name: editDisplayName.value.trim(),
         email: trimmedEmail,
+        timezone: editTimezone.value.trim(),
+        is_active: editIsActive.value,
         is_admin: isNewAdmin,
         roles: newRoles,
       }),
@@ -356,6 +443,11 @@ async function saveUser() {
 }
 
 async function toggleAdminRole(user: LocalUserProfile) {
+  if (isLastAdmin(user) && user.is_admin) {
+    error.value = 'Cannot remove the last remaining administrator'
+    return
+  }
+
   updatingId.value = user.id
   error.value = ''
   successMsg.value = ''
