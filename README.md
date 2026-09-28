@@ -1,6 +1,8 @@
 # CourseWeaver
 
-**CourseWeaver** is a web-based curriculum mapping, academic scheduling, and room planning platform designed for higher education institutions and business schools. It enables academic administrators, program managers, and faculty to model degree programs, map competencies and learning outcomes, manage teaching facilities and equipment, plan semester schedules, detect scheduling conflicts, and generate reports for accreditation.
+**CourseWeaver** is the web-based **Curriculum Mapping** app for higher education institutions and business schools: it structures degree programs (departments → programs → degrees → modules → lessons), links learning outcomes with competencies and proofs of competency, supports curriculum versioning and CSV/Excel import, and computes constructive-alignment reports for accreditation.
+
+> Scheduling (rooms, lecturer/room availability, semester timetabling with the Timefold Solver) lives in the dedicated sister app **[TimeWeaver](https://github.com/tapassio/TimeWeaver)**. The pre-split monolith remains available: branch `archive/combined-monolith` (tag `v0.1.0-combined-monolith`).
 
 ---
 
