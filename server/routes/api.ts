@@ -123,7 +123,9 @@ apiRouter.post('/:entity/:id/admins', async (req: Request, res: Response) => {
 
     const claims = extractOidcClaims(req)
     const callerId = claims ? (await getUserByOidc(claims.iss, claims.sub))?.id : null
-    const isGlobalAdmin = claims ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin : false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
 
     if (!isGlobalAdmin) {
       if (!callerId || !(await isEntityAdmin(entity, entityId, callerId))) {
@@ -158,7 +160,9 @@ apiRouter.delete('/:entity/:id/admins/:userId', async (req: Request, res: Respon
 
     const claims = extractOidcClaims(req)
     const callerId = claims ? (await getUserByOidc(claims.iss, claims.sub))?.id : null
-    const isGlobalAdmin = claims ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin : false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
 
     if (!isGlobalAdmin) {
       if (!callerId || !(await isEntityAdmin(entity, entityId, callerId))) {
@@ -195,7 +199,9 @@ apiRouter.get('/:entity', async (req: Request, res: Response) => {
 
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
-    const isGlobalAdmin = localUser?.is_admin ?? false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
 
     const adminEntities = isGlobalAdmin ? [] : localUser ? await getEntitiesWhereUserIsAdmin(localUser.id) : []
     const adminSet = new Set(adminEntities.map(e => `${e.table_name}::${e.entity_id}`))
@@ -266,7 +272,9 @@ apiRouter.get('/:entity/:id', async (req: Request, res: Response) => {
 
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
-    const isGlobalAdmin = localUser?.is_admin ?? false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
     const canEdit = isGlobalAdmin || (localUser ? await isEntityAdmin(entity, id, localUser.id) : false)
 
     res.json({ ...item, _canEdit: canEdit, _isAdmin: canEdit })
@@ -286,7 +294,9 @@ apiRouter.post('/:entity', async (req: Request, res: Response) => {
     // Creator becomes admin unless it's a superuser-only table
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
-    const isGlobalAdmin = localUser?.is_admin ?? false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
 
     if (SUPERUSER_TABLES.has(entity) && !isGlobalAdmin) {
       res.status(403).json({ error: 'Only global administrators can create this entity type' })
@@ -315,7 +325,9 @@ apiRouter.put('/:entity/:id', async (req: Request, res: Response) => {
 
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
-    const isGlobalAdmin = localUser?.is_admin ?? false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
 
     if (SUPERUSER_TABLES.has(entity) && !isGlobalAdmin) {
       res.status(403).json({ error: 'Only global administrators can edit this entity type' })
@@ -345,7 +357,9 @@ apiRouter.patch('/:entity/:id', async (req: Request, res: Response) => {
 
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
-    const isGlobalAdmin = localUser?.is_admin ?? false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
 
     if (SUPERUSER_TABLES.has(entity) && !isGlobalAdmin) {
       res.status(403).json({ error: 'Only global administrators can edit this entity type' })
@@ -373,7 +387,9 @@ apiRouter.delete('/:entity/:id', async (req: Request, res: Response) => {
     const id = String(req.params.id)
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
-    const isGlobalAdmin = localUser?.is_admin ?? false
+    const isGlobalAdmin = claims
+  ? (await getUserByOidc(claims.iss, claims.sub))?.is_admin ?? false
+  : !process.env.API_AUTH_TOKEN
 
     if (SUPERUSER_TABLES.has(entity) && !isGlobalAdmin) {
       res.status(403).json({ error: 'Only global administrators can delete this entity type' })
