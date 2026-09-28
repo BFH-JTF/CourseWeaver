@@ -29,6 +29,10 @@ export interface ScheduledSession {
   day: OnCampusDay
   room: Room
   slotTypes: SlotType[]
+  instructorIds: string[]
+  /** Outlook-Anbindung (9.5): Graph-Event-ID + transactionId, falls bereits veröffentlicht */
+  graphEventId?: string
+  outlookTransactionId?: string
 }
 
 export interface RuleEvaluation {

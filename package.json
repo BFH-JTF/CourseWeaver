@@ -5,19 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n \"server,client\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:client": "vite",
+    "dev:client": "vite frontend",
     "dev:server": "tsx watch server/index.ts",
     "start": "tsx server/index.ts",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "test": "tsx src/utils/__tests__/csvImport.test.ts && tsx server/test/api.test.ts",
+    "build": "vue-tsc --noEmit -p frontend/tsconfig.json && vite build frontend",
+    "preview": "vite preview frontend",
+    "typecheck": "vue-tsc --noEmit -p frontend/tsconfig.json && tsc -p tsconfig.server.json --noEmit",
+    "test": "tsx --tsconfig frontend/tsconfig.json frontend/src/utils/__tests__/csvImport.test.ts && tsx server/test/api.test.ts && tsx server/test/outlook.test.ts && tsx server/test/mapping.test.ts && tsx server/test/solver.test.ts",
+    "seed": "tsx server/seed-mock.ts",
     "poc:timetable": "tsx server/solver/benchmarks/poc.ts",
     "solver:bench": "tsx server/solver/benchmarks/run.ts"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
     "cors": "^2.8.6",
+    "cp-sat-ts": "file:vendor/cp-sat-typescript",
     "docpouch-client": "^1.2.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -26,7 +28,9 @@
     "pinia": "^4.0.3",
     "vue": "^3.5.42",
     "vue-router": "^4.6.4",
-    "vuetify": "^4.2.1"
+    "vuedraggable": "^4.1.0",
+    "vuetify": "^4.2.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

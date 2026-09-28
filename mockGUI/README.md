@@ -1,99 +1,38 @@
-# CourseWeaver — MockGUI
+# CourseWeaver — MockGUI (Daten & Analyse-Pipeline)
 
-Curriculum-mapping Mock für BFH Master's programs (inspiriert von Ilios).
-Standalone Mock, gebaut auf Vue 3 + Vite + DocPouch + OIDC — dient als
-funktionaler Prototyp bevor Logik/Daten ins Produktiv-Projekt `src/` wandern.
+Ursprünglich funktionaler Prototyp (standalone), inzwischen aufgeteilt:
 
-## Ordnerstruktur (neu)
+- **GUI-Prototyp** → `frontend/mockup/` (`mockup.html`, `useAuth.js`) — Teil des Front-Ends, direktes Öffnen im Browser.
+- **Demo-/Mock-Daten** → `mockGUI/data/*.json` — **Backend-referenced**: 
+  - `npm run seed` (`server/seed-mock.ts`) lädt daraus Programme/Module/Objective-Mappings/Proofs in den Entity-Store.
+  - CP-SAT-Sampling: `server/solver/sample-data.ts` liest `solver-sample.json` von hier.
+  - Python-Analyseesprototypen in `mockGUI/mapping/` (Extraction/Ähnlichkeit/AACSB-Report) nutzen `data/` ebenfalls.
+- **types/** — TypeScript-Referenz für Modul-/Scheduling-Typen, migrät successiv in `frontend/src/types/`.
+- **config/docker-compose.yml** — dedizierte DocPouch-Instanz (Port 3032) für den Prototyp.
+- **docs/** — Datenmodell; Referenzen für Both Datenmodell und Analysis.
 
-```
-mockGUI/
-├── README.md               # diese Datei (Überblick + Migration)
-├── gui/                    # Mock-GUI — direkt in src/ verschiebbar
-│   ├── mockup.html         # Vollständiger Mock (inline DATA aus ../data/)
-│   └── useAuth.js          # OIDC-Login (DocPouch) — Vorlage für src/composables/useAuth.ts
-├── data/                   # Mock-Daten (JSON) — durch echte Daten/API ersetzbar
-│   ├── department.json
-│   ├── programs.json
-│   ├── semesters.json
-│   ├── modules.json        # 64 Module + program_id/semester_id/instructor_ids
-│   ├── contact-blocks.json # 60 Blockwochen (slots: date/weekday/period, room_id)
-│   ├── instructors.json    # 75 Dozierende
-│   ├── instructor-availability.json
-│   ├── locations.json      # 2 Standorte
-│   ├── rooms.json          # 4 Räume
-│   ├── terms.json, competencies.json, objectives.json, ...
-│   └── rubrics.json, assessment-results.json, improvement-actions.json
-├── types/                  # TypeScript-Quellenwahrheit — 1:1 nach src/types/ kopierbar
-│   ├── program.ts          # Department, Program
-│   ├── module.ts           # Module, SchedulingConstraint, ModuleRelationship
-│   ├── contact-block.ts    # ContactBlock
-│   ├── scheduling.ts       # HalfDaySlot (ContactWeekday: thu/fri/sat)
-│   ├── lesson.ts, instructor.ts, semester.ts, location.ts, room.ts
-│   └── taxonomy.ts, assurance-of-learning.ts
-├── docs/
-│   ├── data-model.md       # Datenmodell v4 (Hierarchy, Linking, AoL)
-│   └── Willcox_Mapping outcomes.pdf
-└── config/
-    └── docker-compose.yml  # Dedizierte DocPouch-Instanz (Port 3032)
-```
+## Mapping zwischen Mock und Produktiv
 
-**Analogie zum Produktiv-Projekt:**
-
-| mockGUI | Produktiv (`CourseWeaver/`) |
+| mockGUI | Produktiv |
 |---|---|
-| `gui/mockup.html` | `src/views/*.vue` + `src/components/*` |
-| `gui/useAuth.js` | `src/composables/useAuth.ts` / `src/stores/auth.ts` |
-| `types/*.ts` | `src/types/*.ts` |
-| `data/*.json` | DocPouch/PostgreSQL JSONB (`curriculum_versions`, `modules`, ...) |
-| `config/docker-compose.yml` | `docker-compose.yml` (Root) |
-| `docs/data-model.md` | `docs/datastructure.*.md` |
+| `frontend/mockup/mockup.html` | `frontend/src/views/*.vue` + `frontend/src/components/*` |
+| `frontend/mockup/useAuth.js` | `frontend/src/composables/useAuth.ts` / `stores/auth.ts` |
+| `types/*.ts` | `frontend/src/types/*.ts` |
+| `data/*.json` | DocPouch/PostgreSQL (`entity_store`, `learning_cycle_embeddings` ...) |
+| `config/docker-compose.yml` | Root `docker-compose.yml` |
 
 ## Mock-GUI starten
 
 ```bash
-# Option A: statisch (ohne Build)
-python -m http.server 5174 --directory mockGUI
-# -> http://localhost:5174/gui/mockup.html
-
-# Option B: wie gehabt inline DATA (kein fetch nötig)
-# Öffne direkt: mockGUI/gui/mockup.html im Browser
+python -m http.server 5174 --directory frontend/mockup
+# -> http://localhost:5174/mockup.html
 ```
 
-`gui/mockup.html` enthält `const DATA = {...}` als Snapshot aus `../data/*.json`.
-Für dynamisches Laden (empfohlen für echte Daten) im `<script>` auf `fetch('../data/...')` umstellen — Kommentar in `gui/mockup.html:283` zeigt das Pattern.
+`frontend/mockup/mockup.html` enthält `const DATA` als Snapshot von `mockGUI/data/*.json`; 
+dynamischer Laden via `fetch('/api/...')` als Upgrade-Pattern.
 
 ## Echte Daten übernehmen
 
-1. **JSON ersetzen:** Dateien in `data/` durch Exporte aus DocPouch/PostgreSQL ersetzen — gleiche Dateinamen, gleiche `_id`-Referenzen beibehalten.
-2. **Oder API anbinden:** In `gui/mockup.html` den `DATA`-Block durch `fetch('/api/...')` ersetzen und `types/*.ts` als Interfaces weiterverwenden.
-3. **Schema prüfen:** `docs/data-model.md` beschreibt Linking-Strategie (hierarchisch vs. loose referencing) und Konflikt-Checks (`checkScheduleConflicts`).
-
-## GUI ins Produktiv-Projekt verschieben
-
-```bash
-# Types
-cp mockGUI/types/*.ts CourseWeaver/src/types/
-
-# GUI (HTML -> Vue)
-# mockup.html als Vorlage für src/views/ScheduleView.vue etc. zerlegen
-cp mockGUI/gui/useAuth.js CourseWeaver/src/composables/useAuth.js
-
-# Daten (nur für Dev)
-cp mockGUI/data/*.json CourseWeaver/public/mock-data/  # optional
-```
-
-Danach `src/types/room.ts` und `src/types/location.ts` mit den bereits vorhandenen Produktiv-Types abgleichen (sind inhaltlich identisch).
-
-## DocPouch / OIDC
-
-- `config/docker-compose.yml` nutzt `bfh-jtf/docpouch:latest` auf Port `3032` (Produktiv: `3030`).
-- In `gui/useAuth.js` `OIDC_CONFIG` mit eigenem Client füllen (EduID/Keycloak) — siehe `docs/data-model.md` Next Steps.
-- `ANONYMOUS_DOCUMENTS_ENABLED` absichtlich nicht gesetzt (Lesson aus SWOT/Pulsmesser).
-
-## Nächste Schritte
-
-1. `OIDC_CONFIG` in `gui/useAuth.js` füllen
-2. Image/Tag in `config/docker-compose.yml` gegen SWOT-Config prüfen
-3. DocPouch-Structures aus `docs/data-model.md` anlegen
-4. `checkScheduleConflicts()` (Instructor/Room/Module-Exclusion) implementieren
+1. JSON-Dateien in `mockGUI/data/` durch DocPouch-/Postgres-Exporte ersetzen (gleiche IDs beibehalten).
+2. Oder Mock auf `fetch('/api/...')` umstellen.
+3. Schema in `docs/data-model.md`.

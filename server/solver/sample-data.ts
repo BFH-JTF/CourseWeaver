@@ -1,93 +1,42 @@
 /**
- * sample-data – fachliches Domänenmodell (Stufe 1)
- * Entspricht sample-data.js aus Kap. 8, jetzt typisiert.
- * Wird für Tests, Benchmarks und Demos verwendet.
+ * Solver-Beispieldaten — KEINE Hardcodes mehr im Code:
+ * Die Daten liegen in mockGUI/data/solver-sample.json und werden hier
+ * typisiert eingelesen (einmalig synchron bei Modulload).
+ * Pfadauflösung robust: relative zum Modul (tsx/dev und dist) oder zum cwd.
+ * Stufe-1-Daten (Domänenmodell) für Tests, Benchmarks und Demos.
  */
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath, URL } from 'node:url'
+import type { Module, OnCampusDay, Program, Room } from './domain.js'
 
-import type { Module, OnCampusDay, Room, Program } from './domain.js'
+interface SolverSampleData {
+  programs: Program[]
+  rooms: Room[]
+  days: OnCampusDay[]
+  modules: Module[]
+}
 
-export const samplePrograms: Program[] = [
-  { id: 'prog-dba', name: 'Digital Business Administration' },
-  { id: 'prog-pst', name: 'Public Sector Transformation' },
-]
+function resolveSamplePath(): string {
+  const rel = 'mockGUI/data/solver-sample.json'
+  const candidates = [
+    // tsx/dev: .../server/solver/ -> 2x hoch = Projekt-Root
+    fileURLToPath(new URL('../../' + rel, import.meta.url)),
+    // kompiliert: .../dist/server/solver/ -> 3x hoch = Projekt-Root
+    fileURLToPath(new URL('../../../' + rel, import.meta.url)),
+    // npm scripts laufen aus dem Projekt-Root
+    path.resolve(process.cwd(), rel),
+  ]
+  for (const c of candidates) if (existsSync(c)) return c
+  throw new Error(
+    `solver-sample.json nicht gefunden (Kandidaten: ${candidates.join('; ')}) — ` +
+      'Beispieldaten liegen in mockGUI/data/ und müssen mit dem Projekt verteilt werden.',
+  )
+}
 
-export const sampleRooms: Room[] = [
-  { id: 'room-001', name: 'Seminarraum 2.14', capacity: 30 },
-  { id: 'room-002', name: 'Hörsaal A', capacity: 80 },
-  { id: 'room-003', name: 'Computerlab', capacity: 24 },
-  { id: 'room-004', name: 'Seminarraum 3.01', capacity: 40 },
-]
+const parsed = JSON.parse(readFileSync(resolveSamplePath(), 'utf-8')) as SolverSampleData
 
-export const sampleDays: OnCampusDay[] = [
-  { id: '2028-02-03', date: '2028-02-03', week: 5, weekday: 'Donnerstag', phase: 'main' },
-  { id: '2028-02-04', date: '2028-02-04', week: 5, weekday: 'Freitag', phase: 'main' },
-  { id: '2028-02-05', date: '2028-02-05', week: 5, weekday: 'Samstag', phase: 'main' },
-  { id: '2028-02-10', date: '2028-02-10', week: 6, weekday: 'Donnerstag', phase: 'main' },
-  { id: '2028-02-11', date: '2028-02-11', week: 6, weekday: 'Freitag', phase: 'main' },
-  { id: '2028-02-12', date: '2028-02-12', week: 6, weekday: 'Samstag', phase: 'main' },
-]
-
-export const sampleModules: Module[] = [
-  {
-    id: 'mod-001',
-    name: 'Digital Marketing',
-    program: 'prog-dba',
-    ects: 6,
-    expectedStudents: 25,
-    instructors: ['instr-001', 'instr-002'],
-    restrictions: [],
-  },
-  {
-    id: 'mod-002',
-    name: 'Change Management',
-    program: 'prog-dba',
-    ects: 6,
-    expectedStudents: 20,
-    instructors: ['instr-001'],
-    restrictions: [
-      { id: 'AVOID_FRIDAY_AFTERNOON', category: 'soft', weight: 20 },
-    ],
-  },
-  {
-    id: 'mod-003',
-    name: 'Cloud Business Models',
-    program: 'prog-dba',
-    ects: 3,
-    expectedStudents: 18,
-    instructors: ['instr-003'],
-    restrictions: [
-      { id: 'UNAVAILABLE_DATES', category: 'hard', params: { dates: ['2028-02-04'] } },
-    ],
-  },
-  {
-    id: 'mod-004',
-    name: 'Live Case: Felber',
-    program: 'prog-dba',
-    ects: 6,
-    expectedStudents: 30,
-    instructors: ['instr-004'],
-    restrictions: [
-      { id: 'AVOID_SATURDAY', category: 'soft', weight: 10 },
-    ],
-  },
-  {
-    id: 'mod-005',
-    name: 'Data-Driven Decision',
-    program: 'prog-dba',
-    ects: 3,
-    expectedStudents: 22,
-    instructors: ['instr-002', 'instr-003'],
-    restrictions: [],
-  },
-  {
-    id: 'mod-006',
-    name: 'AI in Business',
-    program: 'prog-dba',
-    ects: 6,
-    expectedStudents: 28,
-    instructors: ['instr-005'],
-    restrictions: [
-      { id: 'ALLOWED_WEEKDAYS', category: 'hard', params: { weekdays: ['Donnerstag', 'Freitag'] } },
-    ],
-  },
-]
+export const samplePrograms: Program[] = parsed.programs
+export const sampleRooms: Room[] = parsed.rooms
+export const sampleDays: OnCampusDay[] = parsed.days
+export const sampleModules: Module[] = parsed.modules

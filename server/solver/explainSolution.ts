@@ -6,7 +6,7 @@
 
 import type { SolverInput } from './solverInput.js'
 import type { RawSolverResult, RuleEvaluation, TimetableSolution } from './types.js'
-import { CONSTRAINT_CATALOG } from './constraintCatalog.js'
+import { CONSTRAINT_CATALOG, SOFT_PENALTY_SCALE } from './constraintCatalog.js'
 
 function slotsOverlap(a: string[], b: string[]): boolean {
   return a.some((s) => b.includes(s))
@@ -34,6 +34,7 @@ export function explainSolution(
       day,
       room,
       slotTypes: sess.slotTypes,
+      instructorIds: sess.instructorIds,
     }
   })
 
@@ -154,7 +155,70 @@ export function explainSolution(
     })
   }
 
+
+  // --- COHORT_CONFLICT (Kap. 11.1, hard) -----------------------------------
+  {
+    const affectedSet = new Set<string>()
+    let satisfied = true
+    for (let i = 0; i < raw.assignments.length; i++) {
+      for (let j = i + 1; j < raw.assignments.length; j++) {
+        const ai = raw.assignments[i]!
+        const aj = raw.assignments[j]!
+        if (ai.dayId !== aj.dayId) continue
+        const si = sessionById.get(ai.sessionId)!
+        const sj = sessionById.get(aj.sessionId)!
+        const cohortSame = si.program === sj.program && (si.semester ?? 'default') === (sj.semester ?? 'default')
+        if (!cohortSame || si.moduleId === sj.moduleId) continue
+        if (!slotsOverlap(si.slotTypes, sj.slotTypes)) continue
+        satisfied = false
+        affectedSet.add(ai.sessionId)
+        affectedSet.add(aj.sessionId)
+      }
+    }
+    explanations.push({
+      constraintId: 'COHORT_CONFLICT',
+      category: 'hard',
+      satisfied,
+      cost: 0,
+      affectedSessionIds: [...affectedSet],
+      message: satisfied ? 'Keine Kohorten-Doppelbelegung' : 'Kohorte (Programm+Semester) kollidiert am selben Tag',
+    })
+  }
+
+  // --- MODULE_PREREQUISITE_ORDER (Kap. 11.3, hard) --------------------------
+  {
+    const prereqPairs = input.prerequisites
+    let satisfied = true
+    const affected: string[] = []
+    const dayIndex = new Map(input.days.map((d, i) => [d.id, i]))
+    for (const { prerequisiteModuleId, dependentModuleId } of input.prerequisites) {
+      const aAssign = raw.assignments.filter(a => sessionById.get(a.sessionId)!.moduleId === prerequisiteModuleId)
+      const bAssign = raw.assignments.filter(a => sessionById.get(a.sessionId)!.moduleId === dependentModuleId)
+      for (const a of aAssign) {
+        const idxA = dayIndex.get(a.dayId)!
+        for (const b of bAssign) {
+          const idxB = dayIndex.get(b.dayId)!
+          if (idxA >= idxB) {
+            satisfied = false
+            affected.push(a.sessionId, b.sessionId)
+          }
+        }
+      }
+    }
+    explanations.push({
+      constraintId: 'MODULE_PREREQUISITE_ORDER',
+      category: 'hard',
+      satisfied,
+      cost: 0,
+      affectedSessionIds: [...new Set(affected)],
+      message: satisfied
+        ? 'Prerequisite-Reihenfolge eingehalten'
+        : 'Prerequisite-Modul liegt nach abhängigem Modul',
+    })
+  }
+
   // --- Soft constraints: AVOID_*, PREFER_* --------------------------------
+  // Diese wurden als softPenalties pro Session/Tag vorgerechnet; hier re-evaluieren, PREFER_* --------------------------------
   // Diese wurden als softPenalties pro Session/Tag vorgerechnet; hier re-evaluieren
   const softIds = ['AVOID_FRIDAY_AFTERNOON', 'AVOID_SATURDAY', 'AVOID_EVENING', 'PREFER_MORNING'] as const
   for (const cid of softIds) {
@@ -166,7 +230,8 @@ export function explainSolution(
       const sess = sessionById.get(a.sessionId)!
       const hit = sess.softPenalties.find((p) => p.constraintId === cid && p.dayId === a.dayId)
       if (hit) {
-        cost += hit.weight
+        // in derselben Skalierung wie das Solver-Objective (SOFT_PENALTY_SCALE)
+        cost += hit.weight * SOFT_PENALTY_SCALE
         affected.push(a.sessionId)
       }
     }

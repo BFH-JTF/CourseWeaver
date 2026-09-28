@@ -1,23 +1,66 @@
 /**
- * Solver Service – verwaltet Worker Threads (Kap. 2 Jobs überwachbar/abbrechbar)
- * Fällt zurück auf In-Prozess wenn Worker nicht gewünscht (Tests).
+ * Solver Service – Managed Worker Threads (Kap. 2)
+ * Solver-Läufe laufen NICHT im Request-Handler: Der Worker isolate startet
+ * mit derselben tsx-Loader-Konfiguration wie der Hauptprozess (execArgv wird
+ * explizit vererbt — Node erbt loader-Flags NICHT automatisch).
+ *
+ * Review-Fixes #2/#3:
+ *  - Der Entry-Point wird je nach Laufzeitform gewählt (.ts unter tsx,
+ *    kompiliertes .js in Produktion) — kein hartkodierter Pfad mehr.
+ *  - Worker-*Fehler* werden an den Aufrufer übermittelt (reject), NICHT
+ *    still auf synchrones In-Prozess-Solving zurückgegriffen.
+ *    solveInProcess bleibt bewusst für Tests/kleine Instanzen exportiert.
  */
 
 import { Worker } from 'node:worker_threads'
 import path from 'node:path'
+import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { SolverInput } from './solverInput.js'
 import type { RawSolverResult, SolveOptions, TimetableSolution } from './types.js'
-import { OrToolsWasmTimetableSolver } from './OrToolsWasmTimetableSolver.js'
+import { createTimetableSolver } from './engine.js'
 import { explainSolution } from './explainSolution.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+/** Serverseitige Obergrenze für solver-Läufe (PoC-Acceptance-Kriterium ≤ 120s) */
+export const SOLVER_TIME_LIMIT_CAP = 120
+
+export function capTimeLimitSeconds(v: number | undefined, fallback = 60): number {
+  const raw = v ?? fallback
+  return Math.max(1, Math.min(raw, SOLVER_TIME_LIMIT_CAP))
+}
+
 export interface JobHandle {
   promise: Promise<TimetableSolution>
   abort: () => void
 }
+
+/**
+ * Resolves the Worker entry:
+ *   - tsx/Dev: plain-JS Loader-Wrapper (`solverWorkerLoader.mjs`), der die
+ *     tsx-ESM-Loader-API *im Worker* registriert wird — Node erbt
+ *     loader-Flags nicht zuverlässig in Worker Threads (Review #2).
+ *   - Produktion: kompiliertes `solverWorker.js` direkt.
+ */
+function resolveWorkerFile(): string {
+  const tsPath = path.join(__dirname, 'worker', 'solverWorker.ts')
+  const jsPath = path.join(__dirname, 'worker', 'solverWorker.js')
+  const loaderPath = path.join(__dirname, 'worker', 'solverWorkerLoader.mjs')
+
+  if (import.meta.url.endsWith('.ts')) {
+    if (fs.existsSync(loaderPath)) return loaderPath
+    if (fs.existsSync(tsPath)) return tsPath
+  } else if (fs.existsSync(jsPath)) {
+    return jsPath
+  }
+  throw new Error(
+    `Solver Worker entry-point nicht gefunden (${loaderPath} / ${jsPath}). ` +
+      'In Produktion muss das Paket gebaut werden ("npm run build"), im Dev-Pfad muss tsx installiert sein.',
+  )
+}
+
 
 export function solveInWorker(
   input: SolverInput,
@@ -26,7 +69,10 @@ export function solveInWorker(
   timeoutSeconds?: number,
 ): JobHandle {
   const effectiveOptions: SolveOptions = {
-    timeLimitSeconds: timeoutSeconds ?? options.timeLimitSeconds ?? 60,
+    timeLimitSeconds: capTimeLimitSeconds(
+      timeoutSeconds ?? options.timeLimitSeconds ?? 60,
+      60,
+    ),
     numSearchWorkers: options.numSearchWorkers ?? 4,
     randomSeed: options.randomSeed,
   }
@@ -38,40 +84,31 @@ export function solveInWorker(
   const promise = new Promise<TimetableSolution>((resolve, reject) => {
     rejectOuter = reject
 
-    const workerPath = path.join(__dirname, 'worker', 'solverWorker.js')
-    // tsx/worker benötigt .ts Pfad – bei ESM läuft Worker mit tsx Loader
-    // Wir versuchen .ts, fallback .js
-    const tryPaths = [
-      path.join(__dirname, 'worker', 'solverWorker.ts'),
-      workerPath,
-    ]
-
-    const workerFile = tryPaths[0] // tsx watch kann .ts laden
-
+    let workerFile: string
     try {
-      worker = new Worker(workerFile, {
-        workerData: {
-          input,
-          options: effectiveOptions,
-          moduleNameByIdEntries: [...moduleNameById.entries()],
-        },
-        // Wichtig: tsx loader via execArgv wird von parent geerbt
-      } as any)
+      workerFile = resolveWorkerFile()
     } catch (e: any) {
-      // Fallback: in-prozess (z.B. wenn worker_threads nicht verfügbar)
-      const solver = new OrToolsWasmTimetableSolver(moduleNameById)
-      solver
-        .solve(input, effectiveOptions)
-        .then(resolve)
-        .catch(reject)
+      // strukturell kaputtes Deployment -> FEHLSCHLAG, kein stiller In-Prozess-Fallback
+      reject(new Error(e.message))
       return
     }
 
-    const killTimeout = (effectiveOptions.timeLimitSeconds! + 5) * 1000
+    worker = new Worker(workerFile, {
+      workerData: {
+        input,
+        options: effectiveOptions,
+        moduleNameByIdEntries: [...moduleNameById.entries()],
+      },
+      // WICHTIG (Review #2): Node vererbt den tsx-Loader an Worker Threads
+      // NICHT automatisch — process.execArgv explizit mitgeben.
+      execArgv: process.execArgv,
+    } as any)
+
+    const killWindowMs = (effectiveOptions.timeLimitSeconds! + 5) * 1000
     timeout = setTimeout(() => {
       worker?.terminate()
-      reject(new Error(`Solver Worker Timeout nach ${killTimeout}ms`))
-    }, killTimeout)
+      reject(new Error(`Solver Worker Timeout nach ${killWindowMs}ms`))
+    }, killWindowMs)
 
     let settled = false
     worker.on('message', (msg: any) => {
@@ -83,22 +120,18 @@ export function solveInWorker(
         const solution = explainSolution(input, raw, moduleNameById)
         resolve(solution)
       } else {
-        // Fallback in-prozess bei Worker-Fehler (z.B. unknown file extension)
-        const solver = new OrToolsWasmTimetableSolver(moduleNameById)
-        solver.solve(input, effectiveOptions).then(resolve).catch(reject)
+        // Solver-Fehler im Worker: transparent an den Aufrufer
+        reject(new Error(msg.error ?? 'Solver Worker fehlgeschlagen'))
       }
       worker?.terminate()
     })
 
-    worker.on('error', (err) => {
+    worker.on('error', (err: any) => {
       if (settled) return
       settled = true
       if (timeout) clearTimeout(timeout)
-      // Fallback in-prozess – Worker nicht verfügbar (tsx loader fehlt)
-      console.warn('[solverService] Worker fehlgeschlagen, fallback in-prozess:', err.message)
-      const solver = new OrToolsWasmTimetableSolver(moduleNameById)
-      solver.solve(input, effectiveOptions).then(resolve).catch(reject)
-      worker?.terminate()
+      console.error('[solverService] Worker-Fehler — wird NICHT still in-process gelöst:', err?.message ?? err)
+      reject(err instanceof Error ? err : new Error(String(err)))
     })
 
     worker.on('exit', (code) => {
@@ -106,9 +139,8 @@ export function solveInWorker(
       if (code !== 0) {
         settled = true
         if (timeout) clearTimeout(timeout)
-        console.warn(`[solverService] Worker exit ${code}, fallback in-prozess`)
-        const solver = new OrToolsWasmTimetableSolver(moduleNameById)
-        solver.solve(input, effectiveOptions).then(resolve).catch(reject)
+        console.error(`[solverService] Worker exit ${code} — wird nicht still in-process gefangen`)
+        reject(new Error(`Solver Worker beendet sich mit Code ${code}`))
       }
     })
   })
@@ -123,12 +155,12 @@ export function solveInWorker(
   }
 }
 
-/** Convenience ohne Worker – direkt im Prozess (Tests, kleine Instanzen) */
+/** Convenience ohne Worker – direkt im Prozess (Tests, kleine Instanzen; KEIN Produktions-Fallback #3) */
 export async function solveInProcess(
   input: SolverInput,
   options: SolveOptions = {},
   moduleNameById: Map<string, string> = new Map(),
 ): Promise<TimetableSolution> {
-  const solver = new OrToolsWasmTimetableSolver(moduleNameById)
-  return solver.solve(input, options)
+  const solver = createTimetableSolver(moduleNameById)
+  return solver.solve(input, { ...options, timeLimitSeconds: capTimeLimitSeconds(options.timeLimitSeconds ?? 60) })
 }

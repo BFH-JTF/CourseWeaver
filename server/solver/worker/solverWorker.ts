@@ -5,7 +5,7 @@
  */
 
 import { parentPort, workerData } from 'node:worker_threads'
-import { OrToolsWasmTimetableSolver } from '../OrToolsWasmTimetableSolver.js'
+import { createTimetableSolver } from '../engine.js'
 import type { SolverInput } from '../solverInput.js'
 import type { SolveOptions } from '../types.js'
 
@@ -17,7 +17,7 @@ interface WorkerPayload {
 
 async function run() {
   const { input, options, moduleNameByIdEntries } = workerData as WorkerPayload
-  const solver = new OrToolsWasmTimetableSolver(new Map(moduleNameByIdEntries))
+  const solver = createTimetableSolver(new Map(moduleNameByIdEntries))
   try {
     const raw = await solver.solveRaw(input, options)
     parentPort?.postMessage({ ok: true, raw })

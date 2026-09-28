@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { buildSolverInput } from '../solver/solverInput.js'
-import { solveInWorker, solveInProcess } from '../solver/solverService.js'
+import { solveInWorker, solveInProcess, capTimeLimitSeconds } from '../solver/solverService.js'
 import { CONSTRAINT_CATALOG } from '../solver/constraintCatalog.js'
 import type { SolverInput } from '../solver/solverInput.js'
 import type { Module, OnCampusDay, Room } from '../solver/domain.js'
@@ -42,7 +42,7 @@ timetableRouter.post('/solve', async (req: Request, res: Response) => {
 
     const shouldUseWorker = useWorker !== false // default true (Node kontrolliert Hardware)
     const solverOptions = {
-      timeLimitSeconds: options?.timeLimitSeconds ?? 30,
+      timeLimitSeconds: capTimeLimitSeconds(options?.timeLimitSeconds, 30),
       numSearchWorkers: options?.numSearchWorkers ?? 4,
       randomSeed: options?.randomSeed,
     }
@@ -76,7 +76,7 @@ timetableRouter.post('/solve-raw', async (req: Request, res: Response) => {
       input = buildSolverInput(modules, days, rooms)
     }
     const solverOptions = {
-      timeLimitSeconds: options?.timeLimitSeconds ?? 30,
+      timeLimitSeconds: capTimeLimitSeconds(options?.timeLimitSeconds, 30),
       numSearchWorkers: options?.numSearchWorkers ?? 4,
     }
     const shouldUseWorker = useWorker !== false
@@ -90,8 +90,8 @@ timetableRouter.post('/solve-raw', async (req: Request, res: Response) => {
       res.json(raw)
       return
     } else {
-      const { OrToolsWasmTimetableSolver } = await import('../solver/OrToolsWasmTimetableSolver.js')
-      const solver = new OrToolsWasmTimetableSolver()
+      const { createTimetableSolver } = await import('../solver/engine.js')
+      const solver = createTimetableSolver()
       raw = await solver.solveRaw(input, solverOptions)
       res.json(raw)
       return

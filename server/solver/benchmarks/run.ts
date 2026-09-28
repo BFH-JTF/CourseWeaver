@@ -26,11 +26,16 @@ function generateRooms(n: number): Room[] {
   return Array.from({ length: n }, (_, i) => ({ id: `r${i}`, name: `Raum ${i}`, capacity: 20 + (i % 5) * 10 }))
 }
 
-function generateModules(n: number, programs = ['prog-dba']): Module[] {
+function generateModules(n: number, days: OnCampusDay[], programs = ['prog-dba']): Module[] {
+  // Kohortenrotierung (Programm×Semester): eine Kohorte kann nicht parallel an
+  // zwei Modulen lernen (Kap. 11.1) — Kohortenzahl leitet sich aus der Tages-
+  // kapazität ab (≥1 Modulplatz pro ≈3 Tagen), sonst künstlich INFEASIBLE.
+  const cohorts = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(days.length / 3))))
   return Array.from({ length: n }, (_, i) => ({
     id: `m${i}`,
     name: `Modul ${i}`,
     program: programs[i % programs.length]!,
+    semester: Math.floor(i / Math.ceil(n / cohorts)) % cohorts,
     ects: (i % 4 === 0 ? 3 : 6) as 3 | 6,
     expectedStudents: 15 + (i % 6) * 5,
     instructors: [`instr-${i % 12}`, `instr-${(i + 5) % 12}`].slice(0, 1 + (i % 2)),
@@ -41,7 +46,7 @@ function generateModules(n: number, programs = ['prog-dba']): Module[] {
 async function bench(label: string, modules: number, weeks: number, rooms: number, timeLimit: number) {
   const days = generateDays(weeks)
   const rms = generateRooms(rooms)
-  const mods = generateModules(modules)
+  const mods = generateModules(modules, days)
   const input = buildSolverInput(mods, days, rms)
   const start = Date.now()
   const sol = await solveInProcess(input, { timeLimitSeconds: timeLimit, numSearchWorkers: 4 }, new Map(mods.map((m) => [m.id, m.name])))
@@ -52,7 +57,8 @@ async function bench(label: string, modules: number, weeks: number, rooms: numbe
 }
 
 async function main() {
-  console.log('Benchmark – KursWeaver CP-SAT (or-tools-wasm, Node, 4 Workers)\n')
+  const { resolveSolverEngine } = await import('../engine.js')
+  console.log(`Benchmark – CourseWeaver CP-SAT (${resolveSolverEngine()}, Node)\n`)
   await bench('S-PoC-min', 30, 6, 20, 15)
   await bench('M-PoC-mid', 120, 8, 30, 30)
   await bench('L-PoC-max', 300, 10, 50, 60)

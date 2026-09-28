@@ -281,3 +281,313 @@ Stundenplanregeln**.
 Rohentwurf für Schritt 3.2/3.3 – als Nächstes: Domänenmodell/SolverInput
 sauber trennen (3.2) und den Constraint-Katalog (3.3) einführen, statt
 Restriktionen direkt in den Modul-Objekten zu belassen.
+
+## 9. Outlook-Anbindung für Verfügbarkeitsprüfung (Stundenplaner)
+
+Korrigierte und auf das CourseWeaver-Datenmodell (Abschnitt 3.2) angepasste
+Fassung. Ziel: prüfen, ob Dozierende bereits Termine in den vorgesehenen
+On-Campus-Slots haben, und - nach Freigabe - die geplanten Termine in Outlook
+anlegen.
+
+### 9.1 App registrieren und berechtigen
+
+- App in Microsoft Entra ID registrieren, **Application Permissions**
+  verwenden, **Admin Consent** einholen (korrekt recherchiert)
+- Berechtigungen:
+  - `Calendars.ReadBasic` - für `getSchedule` (Frei/Belegt-Abfrage). Laut
+    aktueller Microsoft-Dokumentation die **geringstprivilegierte**
+    Berechtigung für diese Aktion, auch als Application Permission - hier war
+    die Recherche korrekt
+  - `Calendars.ReadWrite` - um Termine im Kalender der zentralen
+    Planungs-Mailbox zu erstellen
+- **Korrektur:** Zugriff nicht über "Exchange Online RBAC" im allgemeinen
+  Sinn einschränken, sondern über **RBAC for Applications** (Nachfolger der
+  älteren *Application Access Policies*, die Microsoft aktuell schrittweise
+  ablöst). Damit wird die App-weite Berechtigung (die sonst tenant-weit auf
+  alle Mailboxen wirkt) auf genau die Dozierenden- und die
+  Planungs-Mailbox beschränkt - das ist der Kernpunkt, den die Recherche
+  richtig als notwendig erkannt, aber falsch benannt hatte.
+
+### 9.2 Verfügbarkeit abrufen
+
+```http
+POST /users/{planningMailbox}/calendar/getSchedule
+```
+
+```json
+{
+  "schedules": ["lecturer@university.ch"],
+  "startTime": { "dateTime": "2027-02-15T08:00:00", "timeZone": "Europe/Zurich" },
+  "endTime": { "dateTime": "2027-02-19T20:00:00", "timeZone": "Europe/Zurich" },
+  "availabilityViewInterval": 15
+}
+```
+
+**Korrektur der Status-Werte** (Feld `status` in `scheduleItems`, laut
+aktueller Microsoft-Dokumentation): `free`, `tentative`, `busy`, **`oof`**
+(nicht `outOfOffice`), `workingElsewhere`, `unknown`. Die kompakte
+`availabilityView`-Zeichenkette codiert dieselben Zustände pro Zeitfenster
+als Ziffern (0=free, 1=tentative, 2=busy, 3=oof, 4=workingElsewhere).
+
+Mapping für CP-SAT (inhaltlich wie recherchiert, mit korrigiertem Statusnamen):
+
+| Graph-Status | CP-SAT-Behandlung |
+|---|---|
+| `free` | Slot erlaubt |
+| `tentative` | Soft Penalty |
+| `busy` | Slot gesperrt (hart) |
+| `oof` | Slot gesperrt (hart) |
+| `workingElsewhere` | Slot erlaubt (Person arbeitet, ist aber nicht im Kalender blockiert) |
+| `unknown` | manuell prüfen - kein automatischer Entscheid |
+
+### 9.3 Mapping auf das bestehende Datenmodell (Abschnitt 3.2)
+
+Das ist der eigentliche Anpassungsschritt: `getSchedule` liefert 15-Minuten-
+Raster, euer CP-SAT-Modell rechnet aber in `vormittag`/`nachmittag`/`abend`
+(siehe `sample-data.js`/`schedule-model.js`). Diese Übersetzung gehört genau
+in `buildSolverInput()` aus Abschnitt 3.2 - der CP-SAT Model Builder selbst
+bekommt nie ein rohes `availabilityView` zu Gesicht, nur fertige
+`Restriction`-Objekte:
+
+```ts
+// Grenzen der drei On-Campus-Slots in lokaler Zeit (aus sample-data.js: TIME_SLOTS)
+const SLOT_BOUNDARIES: Record<SlotType, { start: string; end: string }> = {
+  vormittag: { start: "08:00", end: "12:00" },
+  nachmittag: { start: "13:00", end: "17:00" },
+  abend: { start: "17:30", end: "20:00" },
+};
+
+// Übersetzt einen availabilityView-String (15-Min-Raster) in einen Status
+// pro On-Campus-Slot eines Tages.
+function slotStatusFromAvailabilityView(
+  availabilityView: string,
+  dayStart: Date,
+  intervalMinutes: number,
+  slot: SlotType,
+): "free" | "tentative" | "blocked" | "unknown" {
+  const { start, end } = SLOT_BOUNDARIES[slot];
+  const indices = indicesForRange(dayStart, start, end, intervalMinutes);
+  const codes = indices.map((i) => availabilityView[i]);
+
+  if (codes.some((c) => c === "2" || c === "3")) return "blocked";   // busy | oof
+  if (codes.some((c) => c === "1")) return "tentative";
+  if (codes.every((c) => c === "0" || c === "4")) return "free";     // free | workingElsewhere
+  return "unknown";
+}
+
+// Erzeugt daraus direkt die Restriction-Objekte aus Abschnitt 3.2 - der
+// Model Builder verarbeitet ab hier nur noch bekannte Restriction-IDs.
+function toRestrictions(
+  instructorId: string,
+  day: OnCampusDay,
+  slot: SlotType,
+  status: ReturnType<typeof slotStatusFromAvailabilityView>,
+): Restriction[] {
+  if (status === "blocked") {
+    return [{ id: "INSTRUCTOR_OUTLOOK_BUSY", category: "hard",
+               params: { instructorId, dayId: day.id, slot } }];
+  }
+  if (status === "tentative") {
+    return [{ id: "INSTRUCTOR_OUTLOOK_TENTATIVE", category: "soft", weight: 15,
+               params: { instructorId, dayId: day.id, slot } }];
+  }
+  if (status === "unknown") {
+    return [{ id: "INSTRUCTOR_OUTLOOK_UNKNOWN", category: "soft", weight: 5,
+               params: { instructorId, dayId: day.id, slot } }]; // manuelle Prüfung anstossen, nicht automatisch sperren
+  }
+  return [];
+}
+```
+
+Diese `Restriction`-Objekte reihen sich in den bestehenden Constraint-Katalog
+ein (`NO_TEACHER_OVERLAP`, `AVOID_FRIDAY_AFTERNOON` usw. aus Abschnitt 3.3) -
+Outlook-Verfügbarkeit wird technisch genauso behandelt wie jede andere
+Regel, nicht als Sonderfall.
+
+### 9.4 Stundenplan berechnen
+
+- Für jede Dozierende Person und jeden On-Campus-Tag `getSchedule` aufrufen,
+  über `slotStatusFromAvailabilityView` in `Restriction`-Objekte übersetzen,
+  diese in `buildSolverInput()` einspeisen (Abschnitt 3.2)
+- Direkt vor der Veröffentlichung **nochmals** `getSchedule` aufrufen (korrekt
+  recherchiert) - zwischen Berechnung und Publikation können Dozierende neue
+  Termine eintragen
+
+### 9.5 Unterrichtstermine erstellen
+
+```http
+POST /users/{planningMailbox}/events
+```
+
+- Zentrale Planungs-Mailbox als Organisator (korrekt)
+- Dozierende als `required` Attendees, Räume als `resource` Attendees
+  (korrekt - `attendeeType` kennt genau diese drei Werte: `required`,
+  `optional`, `resource`)
+- Stabile `transactionId` je Unterrichtseinheit setzen, um Duplikate bei
+  wiederholten Aufrufen zu verhindern (korrekt)
+- Graph-Event-ID zusammen mit der internen Unterrichtseinheit-ID speichern
+  (z. B. als Feld an `ScheduledSession` aus Abschnitt 3.2), damit spätere
+  Änderungen das bestehende Event aktualisieren statt ein zweites anzulegen
+
+### 9.6 Architektur (bestätigt, ergänzt)
+
+- Microsoft Graph nur serverseitig aufrufen (korrekt)
+- Client Secret durch Zertifikat oder Managed Identity ersetzen (korrekt -
+  zusätzlich: RBAC for Applications statt Client Secret allein reduziert das
+  Schadenspotenzial eines kompromittierten Secrets zusätzlich)
+- Optimierung (CP-SAT) und Veröffentlichung (Graph-Event-Erstellung) als
+  getrennte Prozesse implementieren (korrekt - deckt sich mit der
+  Solver-Kapselung aus Abschnitt 3.1: der `TimetableSolver` kennt Graph gar
+  nicht, ein separater `OutlookPublisher` übernimmt das Schreiben)
+- Termine erst nach manueller Freigabe versenden (korrekt)
+
+## 10. Externe Referenz: ITC-2019-Timetabling-Projekt (GitHub)
+
+Analyse von [WideSu/University_Timetabling](https://github.com/WideSu/University_Timetabling)
+— ein Hochschulprojekt, das die *International Timetabling Competition 2019*
+mit MIP und Constraint Programming gelöst hat. Vier Punkte sind relevant.
+
+### 10.1 Übernehmenswert: Prerequisite-Constraint (fehlt aktuell komplett)
+
+Deren Constraint H4 ("Nimmst du AI Planning, musst du auch Algorithmen
+belegen") gibt es bei euch nirgends — weder im `constraintCatalog.ts` noch
+in `ModuleConstraint` (`stores/curriculum.ts`, Typ `requires | corequisite |
+forbids` existiert als *Datenfeld*, wird aber vom Solver nicht ausgewertet).
+Für ein mehrsemestriges Programm wie DBA ist das aber genau der Fall, den
+ihr modelliert: Module mit Voraussetzungen müssen so verplant werden, dass
+die On-Campus-Days des Voraussetzungs-Moduls **vor** denen des
+abhängigen Moduls liegen.
+
+**Fix-Richtung:** neuer Eintrag im Constraint-Katalog
+(`MODULE_PREREQUISITE_ORDER`, hart), der für jedes Session-Paar mit
+Prerequisite-Beziehung erzwingt, dass alle Tage des Voraussetzungsmoduls vor
+allen Tagen des abhängigen Moduls liegen — technisch ähnlich zur
+bestehenden Dozierenden-Konflikt-Prüfung (`addAtMostOne` pro Zeitfenster),
+hier aber eine Reihenfolge- statt Exklusivitätsbedingung
+(`dayIndex(A) < dayIndex(B)` für alle Sessions von A und B).
+
+### 10.2 Übernehmenswert (als Testfall, nicht als neue Architektur)
+
+Die zentrale Erkenntnis des Projekts — zuerst eine garantiert machbare
+Lösung sichern, dann iterativ verbessern — ist bei `or-tools-wasm`/CP-SAT
+bereits eingebaut: Der Solver liefert bei Zeitlimit-Ablauf den besten bisher
+gefundenen Status `FEASIBLE` zurück, nicht "kein Ergebnis". Das sollte aber
+**explizit getestet** werden, nicht nur angenommen — ergänzt Punkt 8 aus
+der Solver-Review (fehlende Unit-Tests): ein Testfall, der ein sehr kurzes
+`timeLimitSeconds` erzwingt und prüft, dass trotzdem ein gültiger,
+wenn auch nicht optimaler Stundenplan zurückkommt.
+
+### 10.3 Übernehmenswert: öffentliche Benchmark-Instanzen
+
+Die [ITC-2019-Datensätze](https://www.itc2019.org/instances/all) sind reale,
+extern validierte Timetabling-Probleme unterschiedlicher Grösse — geeignet
+als zusätzliche Testfälle neben den eigenen synthetischen Benchmarks
+(`benchmarks/run.ts`), um den Solver auch gegen von euch unabhängig erstellte
+Probleminstanzen zu prüfen. Erfordert einen Konverter von deren XML-Format in
+euren `SolverInput` — ähnlicher Aufwand wie deren eigenes
+`01_data_extraction.ipynb`.
+
+### 10.4 Nicht übertragbar
+
+- **"MIP schlägt CP"** — die dortige Erkenntnis bezieht sich auf einen
+  Vergleich zwischen einem "reinen" CP-Solver und einem MIP-Solver (z. B.
+  CPLEX). `or-tools-wasm`/CP-SAT ist selbst bereits ein Hybrid aus
+  Constraint Programming und linearer Relaxation (Lazy Clause Generation) —
+  der Vergleich aus dem Projekt lässt sich nicht direkt auf eure
+  Solver-Wahl übertragen und ist kein Grund, diese zu überdenken.
+- **Student-Sectioning** — die ITC-Probleme ordnen zusätzlich einzelne
+  Studierende mit individueller Kurswahl den Klassen zu und prüfen
+  Konflikte auf Studierendenebene. Bei euch durchlaufen ganze Kohorten
+  gemeinsam die Module eines Semesters — diese zusätzliche Modellebene
+  bringt für CourseWeaver keinen Mehrwert und sollte nicht übernommen
+  werden.
+
+## 11. Externe Referenz: Timefold Quickstarts (GitHub)
+
+Analyse von [TimefoldAI/timefold-quickstarts](https://github.com/TimefoldAI/timefold-quickstarts)
+— Referenzimplementierungen für den Solver Timefold (Java/Kotlin, Fork von
+OptaPlanner). Relevant sind vor allem zwei Quickstarts: *School Timetabling*
+(sehr nah am eigenen Problem) und *Conference Scheduling* (deutlich
+reichhaltigerer Constraint-Katalog). Die Bibliothek selbst ist nicht
+übertragbar (Java/Kotlin, widerspricht der TypeScript-Entscheidung aus
+Kap. 7) — die **Constraint-Modellierung** ist es sehr wohl, unabhängig von
+der konkreten Solver-Bibliothek.
+
+### 11.1 Kritisch: fehlende Kohorten-Konflikt-Prüfung
+
+School-Timetabling-Constraint "Student group conflict" (hart): *"A student
+group cannot attend two lessons at the same time."* Das gibt es in
+`OrToolsWasmTimetableSolver.ts` nicht — dort werden nur Raum- und
+Dozierenden-Konflikte geprüft (siehe Solver-Review, `solver-code-review.md`).
+Zwei Module **desselben Programms und Semesters** könnten also theoretisch
+gleichzeitig an verschiedenen Orten landen, obwohl dieselbe Kohorte beide
+besuchen muss.
+
+**Fix-Richtung:** neuer Eintrag im Constraint-Katalog
+(`COHORT_CONFLICT`, hart), analog zur bestehenden
+Dozierenden-Konflikt-Prüfung (`addAtMostOne` pro Zeitfenster), hier
+gruppiert nach `(program, semester)` statt nach `instructorId` — sobald
+Bug #1 aus der Solver-Review (ein Modul = eine Session) behoben ist, muss
+diese Prüfung über alle Sessions eines Kohorten-Zeitfensters laufen, nicht
+nur über einzelne Modul-Tage.
+
+### 11.2 Übernehmenswert: Tag-basierte Constraint-Generalisierung
+
+Conference-Scheduling nutzt ein generisches Tag-System statt einzelner
+Spezialregeln: Talks und Timeslots/Räume tragen Tags, und vier
+Beziehungstypen prüfen sie gegeneinander — *required*, *prohibited*,
+*preferred*, *undesired* (z. B. "Speaker required timeslot tags", "Talk
+prohibited room tags"). Das ist eine deutlich elegantere Generalisierung als
+unser aktueller Ansatz in `constraintCatalog.ts`, wo jede neue Regel
+(`noFriday`, `excludeDates`, `requiresRoomCapacity`, ...) eine eigene,
+bespoke Implementierung braucht.
+
+**Fix-Richtung (mittelfristig, kein Muss):** `OnCampusDay` bekommt Tags
+(`weekday:friday`, `week:odd`, `phase:final`), `Module`/`Session` bekommt
+`requiredDayTags` / `prohibitedDayTags` / `preferredDayTags` /
+`undesiredDayTags`. Ein einziger generischer Constraint-Builder deckt dann
+alle vier Beziehungstypen ab, statt für jede neue Restriktion eine neue
+Funktion in `isDayAllowed`/`buildSolverInput` zu schreiben. Reduziert
+Code-Duplikation erheblich, sobald mehr als eine Handvoll Regeln existieren.
+
+### 11.3 Übernehmenswert: zweite unabhängige Bestätigung für Prerequisite-Constraints
+
+Conference-Scheduling hat "Talk prerequisite talks" (hart): *"A talk can
+only be scheduled after all its prerequisite talks."* — bestätigt
+unabhängig den Befund aus Kap. 10.1 (ITC-Projekt). Zwei verschiedene,
+ausgereifte Scheduling-Systeme behandeln Voraussetzungs-Reihenfolgen als
+Standard-Hard-Constraint. Stärkt die Priorität von
+`MODULE_PREREQUISITE_ORDER` aus Kap. 10.1.
+
+### 11.4 Übernehmenswert: zwei zusätzliche Soft-Constraint-Ideen
+
+- **Teacher room stability** ("A teacher should teach all their lessons in
+  the same room") — auf euer Modell übertragen: ein Modul (bzw. eine
+  Dozierende Person) sollte über die Sessions hinweg möglichst im selben
+  Raum bleiben, nicht bei jeder Session neu zugewiesen werden. Reduziert
+  Logistikaufwand, den ihr aktuell nicht bewertet.
+- **Speaker makespan** / **Teacher time efficiency** (Zeitspanne bzw. Lücken
+  im Terminplan einer Person minimieren) — relevant, wenn Dozierende in
+  mehreren Modulen/Programmen eingesetzt sind (siehe `sample-data.js`,
+  Prof. Aeschbacher/Egger lehren in mehreren Programmen) — ihr Gesamtplan
+  über alle Module hinweg könnte unnötig zerstreut sein, auch wenn jedes
+  einzelne Modul für sich optimal verplant ist.
+
+### 11.5 Validierung, keine neue Erkenntnis
+
+Die Conference-Scheduling-Tabelle nennt "Justifications" als Solver-Konzept
+— Timefold erklärt automatisch, welche Regel warum wie viel zum Score
+beigetragen hat. Das ist genau das, was `explainSolution.ts` (Kap. 3.3/9)
+von Hand nachbaut, weil `or-tools-wasm`/CP-SAT das nicht mitliefert
+(bereits in Kap. 7 festgehalten). Kein neuer Befund, aber eine gute
+Bestätigung, dass dieser Teil eurer Architektur ein echtes, von etablierten
+Systemen anerkanntes Bedürfnis abdeckt statt Überengineering zu sein.
+
+### 11.6 Nicht übertragbar
+
+- Timefold selbst (Java/Kotlin, Quarkus-Webapp, teils kommerzielle
+  Lizenzstufen) — widerspricht der TypeScript-Entscheidung, keine
+  Kursänderung notwendig
+- "Crowd control" (Talks mit Publikums-Risiko dürfen sich nicht mit zu
+  vielen anderen Risiko-Talks überschneiden) — hat keine Entsprechung im
+  Curriculum-Kontext

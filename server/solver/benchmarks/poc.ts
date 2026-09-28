@@ -32,11 +32,17 @@ function generateRooms(n: number): Room[] {
   }))
 }
 
-function generateModules(n: number): Module[] {
+function generateModules(n: number, days: OnCampusDay[]): Module[] {
+  // Realistisches Muster: Kohorten (Programm×Semester) aus der Tageskapazität
+  // abgeleitet — eine EINE Kohorte kann laut Kap.-11.1-Regel nicht parallel an
+  // zwei Modulen lernen; ohne Rotation würde der Generator unrealistisch
+  // INFEASIBLE Instanzen erzeugen.
+  const cohorts = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(days.length / 3))))
   return Array.from({ length: n }, (_, i) => ({
     id: `mod-${String(i + 1).padStart(3, '0')}`,
     name: `Modul ${i + 1}`,
     program: 'prog-dba',
+    semester: Math.floor(i / Math.ceil(n / cohorts)) % cohorts,
     ects: (i % 3 === 0 ? 3 : 6) as 3 | 6,
     expectedStudents: 18 + (i % 5) * 5,
     instructors: [`instr-${String((i % 10) + 1).padStart(3, '0')}`, `instr-${String(((i + 3) % 10) + 1).padStart(3, '0')}`].slice(0, i % 2 === 0 ? 1 : 2),
@@ -48,7 +54,7 @@ async function runCase(label: string, nModules: number, nDays: number, nRooms: n
   console.log(`\n=== ${label}: ${nModules} Module, ${nDays} Tage, ${nRooms} Räume, limit ${timeLimit}s ===`)
   const days = generateDays(nDays)
   const rooms = generateRooms(nRooms)
-  const modules = generateModules(nModules)
+  const modules = generateModules(nModules, days)
 
   const input = buildSolverInput(modules, days, rooms)
   const moduleNameById = new Map(modules.map((m) => [m.id, m.name]))
