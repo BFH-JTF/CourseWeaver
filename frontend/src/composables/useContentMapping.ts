@@ -140,7 +140,7 @@ export function useContentMapping() {
   }
   async function loadCycles(): Promise<LearningCycleDto[]> {
     const res = await fetch('/api/curriculum_modules')
-    let stored: CurriculumModuleDto[] = res.ok ? await res.json() : []
+    const stored: CurriculumModuleDto[] = res.ok ? await res.json() : []
     // Backward compat: falls die alte learning_cycles-Flat-Tabelle gefüllt ist, merge
     if (!stored.length) {
       const legacy = await fetch('/api/learning_cycles').then(r => (r.ok ? r.json() : []))

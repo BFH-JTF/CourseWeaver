@@ -379,18 +379,6 @@ function drillEntryRaw(entry: OverlapEntryLike) {
   drillOpen.value = true
 }
 
-interface LearningCycleLite {
-  cycleId: string
-  moduleId: string
-  structuralElement: string
-  learningGoals: string
-  mainContent: string
-  didactics: string
-  assignmentDescription?: string
-  assignmentType?: string
-  level?: string
-}
-
 async function runMapping() {
   await refreshMapping(selectedProgramId.value ?? undefined)
 }
