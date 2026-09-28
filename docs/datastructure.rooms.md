@@ -29,12 +29,11 @@ The following fields should be provided for every classroom:
 |---|---|---|
 | `name` | string | Human-readable room name |
 | `floor` | integer or string | Floor number or label |
-| `room_number` | string | Room number within the building |
-| `location_id` | string | Reference to a Location object |
-| `room_type` | string | Type of classroom |
-| `capacity.seats` | integer | Maximum number of regular seats |
+| `roomNumber` | string | Room number within the building |
+| `locationId` | string | Reference to a Location object |
+| `roomType` | string | Type of classroom |
+| `capacity` | integer | Maximum number of regular seats |
 | `accessibility.step_free_access` | boolean | Whether the room has step-free access |
-| `availability` | object | Availability information|
 
 All other fields are optional, but should be included where the information is available.
 
@@ -43,17 +42,16 @@ All other fields are optional, but should be included where the information is a
 ```json
 {
   "name": "Science Building 204",
-  "room_type": "seminar_room",
+  "roomType": "classroom",
   "floor": 2,
-  "room_number": "204",
-  "location_id": "loc_abc123",
+  "roomNumber": "204",
+  "locationId": "loc_abc123",
 
-  "capacity": {},
+  "capacity": 36,
   "layout": {},
   "equipment": {},
   "connectivity": {},
   "accessibility": {},
-  "availability": {},
   "maintenance": {}
 }
 ```
@@ -64,12 +62,12 @@ All other fields are optional, but should be included where the information is a
 |---|---|---:|---|
 | `name` | string | Yes | Human-readable name, such as `Science Building 204`. |
 | `floor` | integer or string | Yes | Floor number or label, such as `2`, `0`, or `"basement"`. |
-| `room_number` | string | Yes | Official room number or designation. |
-| `location_id` | string | No | Reference to a Location object. |
-| `room_type` | string | Yes | General room category. |
+| `roomNumber` | string | Yes | Official room number or designation. |
+| `locationId` | string | No | Reference to a Location object. |
+| `roomType` | string | Yes | General room category. |
 | `owner` | string | No | Contact person responsible for the room. |
 
-Values for `room_type` include:
+Values for `roomType` include:
 
 - `lecture_hall`
 - `classroom`
@@ -82,22 +80,14 @@ Use `other` if no predefined value is appropriate.
 ## 5. Capacity
 
 ```json
-"capacity": {
-  "seats": 36,
-  "accessible_seats": 2,
-  "desks": 18,
-  "standing_capacity": null
-}
+"capacity": 36
 ```
 
 | Field | Type | Required | Description |
 |---|---|---:|---|
-| `capacity.seats` | integer | Yes | Maximum number of normal seats. |
-| `capacity.accessible_seats` | integer | No | Number of seats or spaces suitable for wheelchair users or other accessibility needs. |
-| `capacity.desks` | integer | No | Number of desks or workstations. |
-| `capacity.standing_capacity` | integer | No | Maximum number of additional standing occupants, if relevant. |
+| `capacity` | integer | Yes | Maximum number of normal seats. |
 
-The value of `capacity.seats` should represent the normal approved teaching capacity.
+The value of `capacity` should represent the normal approved teaching capacity.
 
 ## 6. Layout and furniture
 
@@ -271,60 +261,25 @@ Recommended connection values include:
 
 ## 10. Availability
 
-Availability should describe when the room can be scheduled during the relevant planning period.
+Room availability is stored as separate entities (one per weekday and calendar week), each referencing the room by `roomId`:
 
 ```json
-"availability": {
-  "weekdays": [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday"
-  ],
-  "time_ranges": [
-    {
-      "weekday": "monday",
-      "start": "08:00",
-      "end": "20:00"
-    },
-    {
-      "weekday": "tuesday",
-      "start": "08:00",
-      "end": "18:00"
-    }
-  ],
-  "unavailable_periods": [
-    {
-      "start": "10-12",
-      "end": "10-16",
-    }
-  ]
+{
+  "roomId": "room_abc123",
+  "weekId": "week_2026_05",
+  "weekday": "monday",
+  "startTime": "08:00",
+  "endTime": "20:00"
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---:|---|
-| `availability.weekdays` | array of strings | No | Weekdays on which the room is generally available. |
-| `availability.time_ranges` | array of objects | No | Regular available time ranges. |
-| `availability.unavailable_periods` | array of objects | No | Exceptions such as closure periods (format used: MM-DD). |
-
-Each time-range object contains:
-
-| Field | Type | Required | Description |
-|---|---|---:|---:|
+| `roomId` | string | Yes | ID of the room this slot belongs to. |
+| `weekId` | string | No | Calendar week this slot applies to. |
 | `weekday` | string | Yes | Day of the week in lowercase. |
-| `start` | string | Yes | Start time in `HH:mm` format. |
-| `end` | string | Yes | End time in `HH:mm` format. |
-
-Each unavailable-period object contains:
-
-| Field | Type | Required | Description |
-|---|---|---:|---:|
-| `start` | string | Yes | Start date in `MM-DD` format. |
-| `end` | string | Yes | End date in `MM-DD` format. |
+| `startTime` | string | Yes | Start time in `HH:mm` format. |
+| `endTime` | string | Yes | End time in `HH:mm` format. |
 
 
 ## 11. Maintenance and data quality

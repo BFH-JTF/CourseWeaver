@@ -8,17 +8,21 @@ export type SkillLevel = 'Introduction' | 'Regular' | 'Master' | 'I' | 'R' | 'M'
 export interface Competency {
   id?: string
   _id?: string
-  /** NEU — Pflichtfeld: verhindert, dass Kompetenzen unterschiedlicher Rahmen in einer Tabelle vermischen (15.1) */
   frameworkId: string
   name: string
-  /** Domäne z.B. Professional / Entrepreneurial / Sustainable / Digital */
   category?: string
-  /** Dimension z.B. Disciplinary / Methodological / Personal / Social */
   topic?: string
   description?: string
   level?: SkillLevel | string
-  /** Reihenfolge innerhalb des Rahmens für stabile Darstellung (15.1) */
   order?: number
+  xMatrixCompetencyId?: string
+  yMatrixCompetencyId?: string
+}
+
+export interface AclInfo {
+  ownerId?: string
+  adminUserIds?: string[]
+  isPublic?: boolean
 }
 
 export interface CompetencyFramework {

@@ -3,61 +3,36 @@ import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
+import type { Department, Program, Degree, Module, ModuleConstraint } from '@/types/curriculum'
+import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
+import type { MatrixCompetency } from '@/types/matrixCompetency'
+import type { CompetencyMatrix } from '@/types/competencyMatrix'
+import type { RoomAvailability } from '@/types/roomAvailability'
+import type { Week } from '@/types/week'
+import type { ScheduleEntry } from '@/types/scheduleEntry'
+
+export type { Department, Program, Degree, Module, ModuleConstraint }
+export type { LecturerAvailability, SchedulingRule }
 
 export interface CurriculumVersion {
   _id?: string
   id?: string
   name: string
   description?: string
-  version: number
-  parentId?: string
-  createdAt?: string
-}
-
-export interface StudyProgram {
-  _id?: string
-  id?: string
-  name: string
-  description?: string
-  degreeType?: string
+  versionNumber: number
+  /** @deprecated Use versionNumber instead */
   version?: number
-  curriculumVersionId?: string
-}
-
-export interface Module {
-  _id?: string
-  id?: string
-  name: string
-  description?: string
-  code?: string
-  creditPoints?: number
-  contactHours?: number
-  selfStudyHours?: number
-  teachingHours?: number
-  constraints?: ModuleConstraint[]
-  curriculumVersionId?: string
-  studyProgramIds?: string[]
-}
-
-export interface ModuleConstraint {
-  type: 'requires' | 'corequisite' | 'forbids'
-  targetModuleId: string
+  programId?: string
+  createdAt?: string
 }
 
 export interface Semester {
   _id?: string
   id?: string
-  identifier: string
+  name?: string
+  code?: string
   startDate: string
   endDate: string
-  holidays?: DateRange[]
-  specialDates?: DateRange[]
-}
-
-export interface DateRange {
-  start: string
-  end: string
-  label?: string
 }
 
 export interface Lesson {
@@ -67,31 +42,16 @@ export interface Lesson {
   name: string
   description?: string
   taxonomyItemIds?: string[]
-  proofOfKnowledgeIds?: string[]
-  scheduledSessions?: ScheduledSession[]
-}
-
-export interface ScheduledSession {
-  date: string
-  startTime: string
-  endTime: string
-  lecturerId?: string
-  roomId?: string
+  proofOfCompetencyIds?: string[]
 }
 
 export interface Lecturer {
   _id?: string
   id?: string
   name: string
-  email?: string
-  department?: string
-  availability?: AvailabilitySlot[]
-}
-
-export interface AvailabilitySlot {
-  dayOfWeek: number
-  startTime: string
-  endTime: string
+  userId?: string
+  departmentId?: string
+  moduleIds?: string[]
 }
 
 export interface TaxonomyItem {
@@ -99,35 +59,38 @@ export interface TaxonomyItem {
   id?: string
   name: string
   description?: string
-  category: 'competency' | 'learningObjective' | 'proofOfKnowledge'
-  parentTaxonomyItemId?: string
+  category: 'competency' | 'learningObjective' | 'proofOfCompetency'
 }
-
-// Entity mapping for Postgres JSONB backend
-const DocType = EntityTables
-
-export { DocType }
 
 export const useCurriculumStore = defineStore('curriculum', () => {
   const { fetchEntities } = usePostgres()
 
   const curriculumVersions = ref<CurriculumVersion[]>([])
-  const studyPrograms = ref<StudyProgram[]>([])
+  const departments = ref<Department[]>([])
+  const programs = ref<Program[]>([])
+  const degrees = ref<Degree[]>([])
   const modules = ref<Module[]>([])
   const semesters = ref<Semester[]>([])
   const lessons = ref<Lesson[]>([])
   const rooms = ref<Room[]>([])
   const locations = ref<Location[]>([])
   const lecturers = ref<Lecturer[]>([])
+  const lecturerAvailabilities = ref<LecturerAvailability[]>([])
+  const schedulingRules = ref<SchedulingRule[]>([])
   const taxonomyItems = ref<TaxonomyItem[]>([])
+  const competencyMatrices = ref<CompetencyMatrix[]>([])
+  const matrixCompetencies = ref<MatrixCompetency[]>([])
+  const roomAvailabilities = ref<RoomAvailability[]>([])
+  const weeks = ref<Week[]>([])
+  const scheduleEntries = ref<ScheduleEntry[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchCurriculumVersions() {
+  async function fetchDepartments() {
     loading.value = true
     error.value = null
     try {
-      curriculumVersions.value = await fetchEntities<CurriculumVersion>(EntityTables.CURRICULUM_VERSION)
+      departments.value = await fetchEntities<Department>(EntityTables.DEPARTMENT)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -135,11 +98,35 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
-  async function fetchStudyPrograms() {
+  async function fetchPrograms() {
     loading.value = true
     error.value = null
     try {
-      studyPrograms.value = await fetchEntities<StudyProgram>(EntityTables.STUDY_PROGRAM)
+      programs.value = await fetchEntities<Program>(EntityTables.PROGRAM)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchDegrees() {
+    loading.value = true
+    error.value = null
+    try {
+      degrees.value = await fetchEntities<Degree>(EntityTables.DEGREE)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchCurriculumVersions() {
+    loading.value = true
+    error.value = null
+    try {
+      curriculumVersions.value = await fetchEntities<CurriculumVersion>(EntityTables.CURRICULUM_VERSION)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -219,6 +206,30 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
+  async function fetchLecturerAvailabilities() {
+    loading.value = true
+    error.value = null
+    try {
+      lecturerAvailabilities.value = await fetchEntities<LecturerAvailability>(EntityTables.LECTURER_AVAILABILITY)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchSchedulingRules() {
+    loading.value = true
+    error.value = null
+    try {
+      schedulingRules.value = await fetchEntities<SchedulingRule>(EntityTables.SCHEDULING_RULE)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function fetchTaxonomyItems() {
     loading.value = true
     error.value = null
@@ -231,26 +242,104 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
+  async function fetchCompetencyMatrices() {
+    loading.value = true
+    error.value = null
+    try {
+      competencyMatrices.value = await fetchEntities<CompetencyMatrix>(EntityTables.COMPETENCY_MATRIX)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchMatrixCompetencies() {
+    loading.value = true
+    error.value = null
+    try {
+      matrixCompetencies.value = await fetchEntities<MatrixCompetency>(EntityTables.MATRIX_COMPETENCY)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchRoomAvailabilities() {
+    loading.value = true
+    error.value = null
+    try {
+      roomAvailabilities.value = await fetchEntities<RoomAvailability>(EntityTables.ROOM_AVAILABILITY)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchWeeks() {
+    loading.value = true
+    error.value = null
+    try {
+      weeks.value = await fetchEntities<Week>(EntityTables.WEEK)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchScheduleEntries() {
+    loading.value = true
+    error.value = null
+    try {
+      scheduleEntries.value = await fetchEntities<ScheduleEntry>(EntityTables.SCHEDULE_ENTRY)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     curriculumVersions,
-    studyPrograms,
+    departments,
+    programs,
+    degrees,
     modules,
     semesters,
     lessons,
     rooms,
     locations,
     lecturers,
+    lecturerAvailabilities,
+    schedulingRules,
     taxonomyItems,
+    competencyMatrices,
+    matrixCompetencies,
+    roomAvailabilities,
+    weeks,
+    scheduleEntries,
     loading,
     error,
     fetchCurriculumVersions,
-    fetchStudyPrograms,
+    fetchDepartments,
+    fetchPrograms,
+    fetchDegrees,
     fetchModules,
     fetchSemesters,
     fetchLessons,
     fetchRooms,
     fetchLocations,
     fetchLecturers,
+    fetchLecturerAvailabilities,
+    fetchSchedulingRules,
     fetchTaxonomyItems,
+    fetchCompetencyMatrices,
+    fetchMatrixCompetencies,
+    fetchRoomAvailabilities,
+    fetchWeeks,
+    fetchScheduleEntries,
   }
 })

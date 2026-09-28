@@ -17,6 +17,29 @@ services:
       retries: 5
     restart: unless-stopped
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: courseweaver-app
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: courseweaver
+      POSTGRES_USER: courseweaver
+      POSTGRES_PASSWORD: courseweaver
+      DATABASE_URL: http://localhost:3000/api
+      OIDC_ISSUER: http://doc-pouch:3030/oidc
+      OIDC_CLIENT_ID: courseWeaver.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Optional OIDC identity provider service (docPouch instance as an OIDC provider)
   # docPouch is not used as data storage
   doc-pouch:
@@ -27,15 +50,5 @@ services:
     volumes:
       - "./docpouch-db:/app/db"
       - "./docpouch-log:/app/log"
-    environment:
-      - PORT=3030
-      - MEMORY_ONLY=false
-      - JWT_SECRET=change-me-in-production
-      - SESSION_TIMEOUT=24h
-      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
-      - OIDC_ISSUER=http://localhost:3030/oidc
-      - OIDC_REGISTRATION_TOKEN=TestToken
-      - OIDC_COOKIE_KEY=docpouch-cookie-secret-change-in-production
-      - LOG_LEVEL=debug
-      - NODE_ENV=development
+    env_file: .env
     restart: unless-stopped

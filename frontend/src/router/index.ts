@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useOidc } from '@/composables/useOidc'
 import { useAuthStore } from '@/stores/auth'
 
-const AppLayout = () => import('@/layouts/AppLayout.vue')
+import AppLayout from '@/layouts/AppLayout.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -46,11 +46,6 @@ const router = createRouter({
           path: 'taxonomy',
           name: 'taxonomy',
           component: () => import('@/views/TaxonomyView.vue'),
-        },
-        {
-          path: 'modules',
-          name: 'modules',
-          component: () => import('@/views/ModulesView.vue'),
         },
         {
           // Legacy-Pfad — zeigt auf denselben 5-Schritte-Screen wie /curriculum;

@@ -1,3 +1,5 @@
+import type { AclInfo } from '@/types/curriculum'
+
 export type RoomType =
   | 'lecture_hall'
   | 'classroom'
@@ -33,13 +35,6 @@ export type ConnectionType =
 export type StreamingCameraType = 'fixed' | 'tracking' | 'pan_tilt_zoom'
 
 export type StreamingCameraQuality = '720p' | '1080p' | '4k'
-
-export interface RoomCapacity {
-  seats: number
-  accessible_seats?: number
-  desks?: number
-  standing_capacity?: number
-}
 
 export interface RoomLayout {
   type?: LayoutType
@@ -97,41 +92,23 @@ export interface RoomAccessibility {
   accessible_restrooms_nearby?: boolean
 }
 
-export interface TimeRange {
-  weekday: Weekday
-  start: string
-  end: string
-}
-
-export interface UnavailablePeriod {
-  start: string
-  end: string
-}
-
-export interface RoomAvailability {
-  weekdays?: Weekday[]
-  time_ranges?: TimeRange[]
-  unavailable_periods?: UnavailablePeriod[]
-}
-
 export interface RoomMaintenance {
   last_updated: string
 }
 
-export interface Room {
+export interface Room extends AclInfo {
   id?: string
   name: string
-  room_type: RoomType
+  roomType: RoomType
   owner?: string
-  location_id?: string
+  locationId?: string
   floor: number | string
-  room_number: string
-  capacity: RoomCapacity
+  roomNumber: string
+  capacity: number
   layout?: RoomLayout
   equipment?: RoomEquipment
   connectivity?: RoomConnectivity
   accessibility: RoomAccessibility
-  availability: RoomAvailability
   maintenance?: RoomMaintenance
 }
 

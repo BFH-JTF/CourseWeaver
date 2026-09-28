@@ -12,8 +12,8 @@
       <v-window-item value="rooms">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddRoom">Add Room</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('rooms')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddRoom">Add Room</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('rooms')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -36,29 +36,36 @@
           hover
           items-per-page="15"
         >
-          <template #item.room_type="{ item }">
-            {{ formatRoomType(item.room_type) }}
+          <template #item.roomType="{ item }">
+            {{ formatRoomType(item.roomType) }}
           </template>
           <template #item.location_label="{ item }">
-            {{ getLocationLabel(item.location_id) }}
+            {{ getLocationLabel(item.locationId) }}
           </template>
-          <template #item.capacity.seats="{ item }">
-            {{ item.capacity?.seats ?? '-' }}
+          <template #item.capacity="{ item }">
+            {{ item.capacity ?? '-' }}
           </template>
           <template #item.accessibility.step_free_access="{ item }">
             <v-icon :color="item.accessibility?.step_free_access ? 'success' : 'default'">
               {{ item.accessibility?.step_free_access ? 'mdi-check-circle' : 'mdi-close-circle' }}
             </v-icon>
           </template>
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditRoom(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteRoom(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditRoom(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteRoom(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -72,8 +79,8 @@
       <v-window-item value="locations">
         <v-row class="align-center mb-4">
           <v-col cols="12" sm="6" class="d-flex ga-2">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="openAddLocation">Add Location</v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('locations')">Import CSV</v-btn>
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddLocation">Add Location</v-btn>
+            <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('locations')">Import CSV</v-btn>
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field
@@ -96,15 +103,22 @@
           hover
           items-per-page="15"
         >
+          <template #item.name="{ item }">
+            <span>{{ item.name }}</span>
+            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+          </template>
           <template #item.actions="{ item }">
-            <v-btn icon variant="text" size="small" @click="openEditLocation(item)">
-              <v-icon>mdi-pencil</v-icon>
-              <v-tooltip activator="parent">Edit</v-tooltip>
-            </v-btn>
-            <v-btn icon variant="text" size="small" @click="confirmDeleteLocation(item)">
-              <v-icon>mdi-delete</v-icon>
-              <v-tooltip activator="parent">Delete</v-tooltip>
-            </v-btn>
+            <template v-if="item._canEdit">
+              <v-btn icon variant="text" size="small" @click="openEditLocation(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteLocation(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -160,12 +174,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRooms } from '@/composables/useRooms'
 import { useLocations } from '@/composables/useLocations'
+import { useAuthStore } from '@/stores/auth'
 import RoomFormDialog from '@/components/RoomFormDialog.vue'
 import LocationFormDialog from '@/components/LocationFormDialog.vue'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
 import type { ImportType } from '@/types/csvImport'
+
+const auth = useAuthStore()
 
 const {
   rooms,
@@ -209,11 +226,11 @@ const snackbarColor = ref('success')
 
 const roomHeaders = [
   { title: 'Name', key: 'name', sortable: true },
-  { title: 'Type', key: 'room_type', sortable: true },
+  { title: 'Type', key: 'roomType', sortable: true },
   { title: 'Location', key: 'location_label', sortable: true },
   { title: 'Floor', key: 'floor', sortable: true },
-  { title: 'Room no.', key: 'room_number', sortable: true },
-  { title: 'Seats', key: 'capacity.seats', sortable: true },
+  { title: 'Room no.', key: 'roomNumber', sortable: true },
+  { title: 'Seats', key: 'capacity', sortable: true },
   { title: 'Step-free', key: 'accessibility.step_free_access', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '100px' },
 ]
@@ -249,11 +266,11 @@ const filteredRooms = computed(() => {
   const q = roomSearch.value.toLowerCase()
   return rooms.value.filter(r =>
     r.name.toLowerCase().includes(q) ||
-    (r.room_type ?? '').toLowerCase().includes(q) ||
+    (r.roomType ?? '').toLowerCase().includes(q) ||
     (r.owner ?? '').toLowerCase().includes(q) ||
-    getLocationLabel(r.location_id).toLowerCase().includes(q) ||
+    getLocationLabel(r.locationId).toLowerCase().includes(q) ||
     String(r.floor).toLowerCase().includes(q) ||
-    (r.room_number ?? '').toLowerCase().includes(q)
+    (r.roomNumber ?? '').toLowerCase().includes(q)
   )
 })
 
@@ -295,7 +312,7 @@ async function handleCreateLocationFromRoom(location: Location) {
   try {
     await addLocation(location)
     if (location.id) {
-      editRoom.value = { ...editRoom.value!, location_id: location.id }
+      editRoom.value = { ...editRoom.value!, locationId: location.id }
     }
     showSnackbar('Location created')
   } catch {

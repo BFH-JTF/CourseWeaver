@@ -3,9 +3,19 @@ export type ImportType =
   | 'locations'
   | 'competencies'
   | 'modules'
+  | 'proofs_of_knowledge'
+  | 'proofs_of_competency'
   | 'learning_cycles'
   | 'study_programs'
-  | 'proofs_of_knowledge'
+  | 'departments'
+  | 'programs'
+  | 'degrees'
+  | 'availability'
+  | 'scheduling_rules'
+  | 'room_availability'
+  | 'weeks'
+  | 'schedule_entries'
+  | 'matrix_competencies'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 
@@ -27,11 +37,7 @@ export interface ImportTypeConfig {
   description: string
   entityName: string
   fields: ImportFieldDefinition[]
-  /** Transform: zweiter Parameter = Programm-Auflöser (Freitext → StudyProgram.id), Kap. 12.4 */
-  transform: (
-    mappedRows: Record<string, any>[],
-    ctx?: { resolveProgram?: (name: string) => string; resolveFramework?: (name: string) => Promise<string> | string }
-  ) => any[]
+  transform: (mappedRows: Record<string, any>[]) => any[]
 }
 
 export type ColumnMapping = Record<string, string | null> // entityFieldKey -> csvHeader (or null if unmapped)

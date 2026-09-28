@@ -157,7 +157,7 @@
 
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useOidc } from '@/composables/useOidc'
 import { useI18n } from '@/composables/useI18n'
 import { useAuthStore } from '@/stores/auth'
@@ -186,6 +186,13 @@ function goHome(): void {
   void router.push('/')
 }
 
+function closeDrawerAfterNavigation() {
+  drawer.value = false
+}
+
+onMounted(() => {
+  router.afterEach(closeDrawerAfterNavigation)
+})
 
 const navItems = computed(() => {
   const items = [

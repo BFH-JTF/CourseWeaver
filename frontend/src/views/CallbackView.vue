@@ -71,8 +71,12 @@ onMounted(async () => {
       }
     }
     oidc.clearAuthError()
+    oidc.currentUser.value = null
+    oidc.isAuthenticated.value = false
     auth.userName = ''
     auth.isAdmin = false
+    auth.localUser = null
+    auth.bootstrapRequired = false
     router.replace({ name: 'login' })
     return
   }

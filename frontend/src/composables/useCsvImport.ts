@@ -15,6 +15,17 @@ export function useCsvImport() {
     learning_cycles: EntityTables.CURRICULUM_MODULE,
     study_programs: EntityTables.STUDY_PROGRAM,
     proofs_of_knowledge: EntityTables.PROOF_OF_KNOWLEDGE,
+    proofs_of_competency: EntityTables.PROOF_OF_COMPETENCY,
+    departments: EntityTables.DEPARTMENT,
+    programs: EntityTables.PROGRAM,
+    degrees: EntityTables.DEGREE,
+    availability: EntityTables.LECTURER_AVAILABILITY,
+    scheduling_rules: EntityTables.SCHEDULING_RULE,
+    room_availability: EntityTables.ROOM_AVAILABILITY,
+    weeks: EntityTables.WEEK,
+    schedule_entries: EntityTables.SCHEDULE_ENTRY,
+    matrix_competencies: EntityTables.MATRIX_COMPETENCY,
+>>>>>>> origin/main:src/composables/useCsvImport.ts
   }
 
   async function saveImportedData(type: ImportType, items: any[]): Promise<number> {

@@ -24,10 +24,10 @@
 - Create a standard taxonomy to measure against
     - student competencies
     - learning objectives
-    - proves of knowledge
+    - proofs of competency
 - Enter semester information (identifier, start/end, holidays, special dates)
 - Allows for mapping taxonomy items to lessons
-- Allow for mapping proves of knowledge to the lessons/modules that deliver them
+- Allow for mapping proofs of competency to the lessons/modules that deliver them
 
 ### Curriculum Analysis
 - gap/duplication analysis

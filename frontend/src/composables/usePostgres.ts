@@ -18,18 +18,29 @@ export interface PostgresConfig {
 
 export const EntityTables = {
   CURRICULUM_VERSION: 'curriculum_versions',
-  STUDY_PROGRAM: 'study_programs',
   MODULE: 'modules',
   CURRICULUM_MODULE: 'curriculum_modules',
   SEMESTER: 'semesters',
   LESSON: 'lessons',
+  WEEK: 'weeks',
+  SCHEDULE_ENTRY: 'schedule_entries',
   ROOM: 'rooms',
   LOCATION: 'locations',
   LECTURER: 'lecturers',
+  LECTURER_AVAILABILITY: 'lecturer_availability',
+  ROOM_AVAILABILITY: 'room_availability',
+  SCHEDULING_RULE: 'scheduling_rules',
   TAXONOMY: 'taxonomy_items',
   COMPETENCY: 'competencies',
   COMPETENCY_FRAMEWORK: 'competency_frameworks',
   PROOF_OF_KNOWLEDGE: 'proofs_of_knowledge',
+  COMPETENCY_MATRIX: 'competency_matrices',
+  MATRIX_COMPETENCY: 'matrix_competencies',
+  PROOF_OF_COMPETENCY: 'proofs_of_competency',
+  DEPARTMENT: 'departments',
+  PROGRAM: 'programs',
+  DEGREE: 'degrees',
+  CLASS: 'classes',
 } as const
 
 export type EntityTableName = (typeof EntityTables)[keyof typeof EntityTables]
@@ -65,8 +76,35 @@ function saveLocalEntities<T>(tableName: string, items: T[]): void {
 
 export function usePostgres() {
   function getAuthHeader(): Record<string, string> {
-    const token = localStorage.getItem('courseweaver_oidc_access_token') || localStorage.getItem('authToken')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const token = localStorage.getItem('courseweaver_oidc_access_token') || localStorage.getItem('authToken') || ''
+    const idToken = localStorage.getItem('courseweaver_oidc_id_token') || ''
+    const issuer = localStorage.getItem('courseweaver_oidc_issuer') || import.meta.env.OIDC_ISSUER || ''
+    const userJson = localStorage.getItem('courseweaver_oidc_user')
+    let userId = ''
+    if (userJson) {
+      try {
+        const u = JSON.parse(userJson)
+        userId = u.id || ''
+      } catch {
+        // ignore
+      }
+    }
+
+    const headers: Record<string, string> = {}
+    const primaryToken = idToken || token
+    if (primaryToken) {
+      headers['Authorization'] = `Bearer ${primaryToken}`
+    }
+    if (idToken) {
+      headers['X-ID-Token'] = idToken
+    }
+    if (issuer) {
+      headers['X-OIDC-Issuer'] = issuer
+    }
+    if (userId) {
+      headers['X-OIDC-Subject'] = userId
+    }
+    return headers
   }
 
   async function fetchEntities<T extends { _id?: string; id?: string }>(tableName: EntityTableName | string): Promise<T[]> {

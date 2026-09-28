@@ -1,4 +1,6 @@
-export interface Location {
+import type { AclInfo } from '@/types/curriculum'
+
+export interface Location extends AclInfo {
   id?: string
   name: string
   campus?: string

@@ -4,11 +4,41 @@ import type { Location } from '@/types/location'
 import type { Competency, SkillLevel } from '@/types/competency'
 import type { Module, StudyProgram } from '@/stores/curriculum'
 import type { ProofOfKnowledge, AssessmentForm, AssignmentScope } from '@/types/proofOfKnowledge'
+import type { Department, Program, Degree } from '@/types/curriculum'
+import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
+import type { MatrixCompetency } from '@/types/matrixCompetency'
+import type { RoomAvailability } from '@/types/roomAvailability'
+import type { Week } from '@/types/week'
+import type { ScheduleEntry } from '@/types/scheduleEntry'
 import { parseCsv } from '@/utils/csvParser'
 import type { CurriculumModule, LearningCycle } from '@/types/curriculumMapping'
 
 export function normalizeHeader(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+export function parseStringArray(val: any): string[] {
+  if (!val) return []
+  if (Array.isArray(val)) return val.map(String).map(s => s.trim()).filter(Boolean)
+  if (typeof val === 'string') {
+    const trimmed = val.trim()
+    if (!trimmed) return []
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (Array.isArray(parsed)) {
+          return parsed.map(String).map(s => s.trim()).filter(Boolean)
+        }
+      } catch {
+        // fallback to delimiter split
+      }
+    }
+    return trimmed
+      .split(/[,;|]/)
+      .map(s => s.trim())
+      .filter(Boolean)
+  }
+  return [String(val).trim()].filter(Boolean)
 }
 
 export function autoMapColumns(headers: string[], fields: ImportFieldDefinition[]): ColumnMapping {
@@ -366,30 +396,17 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
 
         const room: Room = {
           name: String(obj.name || ''),
-          room_type,
+          roomType: room_type,
           floor,
-          room_number: String(obj.room_number || ''),
-          capacity: {
-            seats: Number(obj.capacity_seats) || 0,
-          },
+          roomNumber: String(obj.room_number || ''),
+          capacity: Number(obj.capacity_seats) || 0,
           accessibility: {
             step_free_access: parseBoolean(obj.accessibility_step_free_access),
           },
-          availability: {},
         }
 
-        if (obj.location_id) room.location_id = String(obj.location_id)
+        if (obj.location_id) room.locationId = String(obj.location_id)
         if (obj.owner) room.owner = String(obj.owner)
-
-        if (obj.capacity_accessible_seats !== undefined && obj.capacity_accessible_seats !== '') {
-          room.capacity.accessible_seats = Number(obj.capacity_accessible_seats) || undefined
-        }
-        if (obj.capacity_desks !== undefined && obj.capacity_desks !== '') {
-          room.capacity.desks = Number(obj.capacity_desks) || undefined
-        }
-        if (obj.capacity_standing_capacity !== undefined && obj.capacity_standing_capacity !== '') {
-          room.capacity.standing_capacity = Number(obj.capacity_standing_capacity) || undefined
-        }
 
         const layout: any = {}
         if (obj.layout_type) {
@@ -627,7 +644,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
     type: 'modules',
     label: 'Modules',
     icon: 'mdi-book-open-page-variant',
-    description: 'Curriculum modules, codes, credits, and contact hours.',
+    description: 'Curriculum modules, degree associations, credits, and contact hours.',
     entityName: 'Module',
     fields: [
       {
@@ -639,12 +656,56 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['name', 'module_name', 'module name', 'modul', 'modulname', 'title'],
       },
       {
-        key: 'code',
-        label: 'Module Code',
-        required: true,
+        key: 'id',
+        label: 'Module ID / Code',
+        required: false,
         type: 'string',
-        description: 'Unique module code (e.g. CS101)',
-        aliases: ['code', 'module_code', 'module code', 'kuerzel', 'modulcode', 'id'],
+        description: 'Unique module identifier or code (e.g. CS101)',
+        aliases: ['id', 'code', 'module_code', 'module code', 'kuerzel', 'modulcode', 'identifier'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Module overview and syllabus',
+        aliases: ['description', 'beschreibung', 'syllabus', 'details', 'desc', 'summary'],
+      },
+      {
+        key: 'DegreeIDs',
+        label: 'Degree IDs',
+        required: false,
+        type: 'string',
+        description: 'Referenced degree IDs (comma, semicolon, or pipe separated)',
+        aliases: [
+          'degreeids',
+          'degree_ids',
+          'degree ids',
+          'degreeid',
+          'degree_id',
+          'degrees',
+          'degree',
+          'degree_programmes',
+          'abschluesse',
+          'abschluss',
+          'abschluss_ids',
+        ],
+      },
+      {
+        key: 'contact',
+        label: 'Contact',
+        required: false,
+        type: 'string',
+        description: 'Contact person or lecturer responsible for the module',
+        aliases: ['contact', 'kontakt', 'contact_person', 'email', 'lecturer', 'dozent', 'responsible', 'person', 'ansprechpartner'],
+      },
+      {
+        key: 'url',
+        label: 'URL',
+        required: false,
+        type: 'string',
+        description: 'Website or syllabus URL of the module',
+        aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
       },
       {
         key: 'creditPoints',
@@ -662,38 +723,32 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         description: 'Classroom teaching hours',
         aliases: ['contacthours', 'contact_hours', 'contact hours', 'kontaktzeit', 'praesenz'],
       },
-      {
-        key: 'selfStudyHours',
-        label: 'Self-Study Hours',
-        required: false,
-        type: 'number',
-        description: 'Independent study hours',
-        aliases: ['selfstudyhours', 'self_study_hours', 'self study', 'selbststudium'],
-      },
-      {
-        key: 'description',
-        label: 'Description',
-        required: false,
-        type: 'string',
-        description: 'Module overview and syllabus',
-        aliases: ['description', 'beschreibung', 'syllabus', 'details'],
-      },
     ],
     transform: (mappedRows: Record<string, any>[]): Module[] => {
       return mappedRows.map(obj => {
         const mod: Module = {
           name: String(obj.name || ''),
-          code: String(obj.code || ''),
         }
+        if (obj.id) mod.id = String(obj.id)
+        if (obj.code || obj.id) mod.code = String(obj.code || obj.id)
         if (obj.description) mod.description = String(obj.description)
+        const degreeIds = parseStringArray(obj.DegreeIDs || obj.degreeIDs || obj.degreeIds)
+        if (degreeIds.length > 0) {
+          mod.DegreeIDs = degreeIds
+          mod.degreeIDs = degreeIds
+          mod.degreeIds = degreeIds
+        }
+        if (obj.contact) mod.contact = String(obj.contact)
+        const urlVal = obj.url || obj.URL
+        if (urlVal) {
+          mod.url = String(urlVal)
+          mod.URL = String(urlVal)
+        }
         if (obj.creditPoints !== undefined && obj.creditPoints !== '') {
           mod.creditPoints = Number(obj.creditPoints) || undefined
         }
         if (obj.contactHours !== undefined && obj.contactHours !== '') {
           mod.contactHours = Number(obj.contactHours) || undefined
-        }
-        if (obj.selfStudyHours !== undefined && obj.selfStudyHours !== '') {
-          mod.selfStudyHours = Number(obj.selfStudyHours) || undefined
         }
         return mod
       })
@@ -849,6 +904,350 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
     },
   },
 
+  departments: {
+    type: 'departments',
+    label: 'Departments',
+    icon: 'mdi-domain',
+    description: 'Academic departments, faculties, or administrative units.',
+    entityName: 'Department',
+    fields: [
+      {
+        key: 'name',
+        label: 'Department Name',
+        required: true,
+        type: 'string',
+        description: 'Name of the department',
+        aliases: ['name', 'department_name', 'department name', 'departement', 'dept_name', 'title', 'fachbereich', 'institut'],
+      },
+      {
+        key: 'id',
+        label: 'Department ID',
+        required: false,
+        type: 'string',
+        description: 'Unique department identifier',
+        aliases: ['id', 'department_id', 'department id', 'dept_id', 'identifier', 'code', 'kuerzel'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Detailed description of the department',
+        aliases: ['description', 'beschreibung', 'details', 'desc', 'summary'],
+      },
+      {
+        key: 'contact',
+        label: 'Contact',
+        required: false,
+        type: 'string',
+        description: 'Contact person or email address',
+        aliases: ['contact', 'kontakt', 'contact_person', 'email', 'person', 'ansprechpartner', 'leitung'],
+      },
+      {
+        key: 'url',
+        label: 'URL',
+        required: false,
+        type: 'string',
+        description: 'Website or URL of the department',
+        aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): Department[] => {
+      return mappedRows.map(obj => {
+        const dept: Department = {
+          name: String(obj.name || ''),
+        }
+        if (obj.id) dept.id = String(obj.id)
+        if (obj.description) dept.description = String(obj.description)
+        if (obj.contact) dept.contact = String(obj.contact)
+        const urlVal = obj.url || obj.URL
+        if (urlVal) {
+          dept.url = String(urlVal)
+          dept.URL = String(urlVal)
+        }
+        return dept
+      })
+    },
+  },
+
+  programs: {
+    type: 'programs',
+    label: 'Programs',
+    icon: 'mdi-school-outline',
+    description: 'Structured courses of study and academic programs.',
+    entityName: 'Program',
+    fields: [
+      {
+        key: 'name',
+        label: 'Program Name',
+        required: true,
+        type: 'string',
+        description: 'Name of the program',
+        aliases: ['name', 'program_name', 'program name', 'studiengang', 'study_program', 'title'],
+      },
+      {
+        key: 'id',
+        label: 'Program ID',
+        required: false,
+        type: 'string',
+        description: 'Unique program identifier',
+        aliases: ['id', 'program_id', 'program id', 'studiengang_id', 'identifier', 'code', 'kuerzel'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Description of the program',
+        aliases: ['description', 'beschreibung', 'details', 'desc', 'summary'],
+      },
+      {
+        key: 'departmentIDs',
+        label: 'Department IDs',
+        required: false,
+        type: 'string',
+        description: 'Referenced department IDs (comma, semicolon, or pipe separated)',
+        aliases: [
+          'departmentids',
+          'department_ids',
+          'department ids',
+          'departmentid',
+          'department_id',
+          'departments',
+          'department',
+          'departement',
+          'dept_ids',
+          'dept_id',
+        ],
+      },
+      {
+        key: 'contact',
+        label: 'Contact',
+        required: false,
+        type: 'string',
+        description: 'Contact person or email address',
+        aliases: ['contact', 'kontakt', 'contact_person', 'email', 'person', 'ansprechpartner', 'studiengangsleitung'],
+      },
+      {
+        key: 'url',
+        label: 'URL',
+        required: false,
+        type: 'string',
+        description: 'Website or URL of the program',
+        aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): Program[] => {
+      return mappedRows.map(obj => {
+        const prog: Program = {
+          name: String(obj.name || ''),
+        }
+        if (obj.id) prog.id = String(obj.id)
+        if (obj.description) prog.description = String(obj.description)
+        const deptIds = parseStringArray(obj.departmentIDs || obj.departmentIds)
+        if (deptIds.length > 0) {
+          prog.departmentIDs = deptIds
+          prog.departmentIds = deptIds
+        }
+        if (obj.contact) prog.contact = String(obj.contact)
+        const urlVal = obj.url || obj.URL
+        if (urlVal) {
+          prog.url = String(urlVal)
+          prog.URL = String(urlVal)
+        }
+        return prog
+      })
+    },
+  },
+
+  degrees: {
+    type: 'degrees',
+    label: 'Degrees',
+    icon: 'mdi-certificate-outline',
+    description: 'Academic qualifications awarded upon program completion.',
+    entityName: 'Degree',
+    fields: [
+      {
+        key: 'name',
+        label: 'Degree Name',
+        required: true,
+        type: 'string',
+        description: 'Name of the degree qualification (e.g. Bachelor of Science)',
+        aliases: ['name', 'degree_name', 'degree name', 'abschluss', 'degree', 'title', 'titel', 'abschlussbezeichnung'],
+      },
+      {
+        key: 'id',
+        label: 'Degree ID',
+        required: false,
+        type: 'string',
+        description: 'Unique degree identifier',
+        aliases: ['id', 'degree_id', 'degree id', 'abschluss_id', 'identifier', 'code', 'kuerzel'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Description of the degree',
+        aliases: ['description', 'beschreibung', 'details', 'desc', 'summary'],
+      },
+      {
+        key: 'ProgramIDs',
+        label: 'Program IDs',
+        required: false,
+        type: 'string',
+        description: 'Referenced program IDs (comma, semicolon, or pipe separated)',
+        aliases: [
+          'programids',
+          'program_ids',
+          'program ids',
+          'programid',
+          'program_id',
+          'programs',
+          'program',
+          'studiengaenge',
+          'studiengang',
+          'studiengang_ids',
+        ],
+      },
+      {
+        key: 'contact',
+        label: 'Contact',
+        required: false,
+        type: 'string',
+        description: 'Contact person or email address',
+        aliases: ['contact', 'kontakt', 'contact_person', 'email', 'person', 'ansprechpartner'],
+      },
+      {
+        key: 'url',
+        label: 'URL',
+        required: false,
+        type: 'string',
+        description: 'Website or URL of the degree',
+        aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): Degree[] => {
+      return mappedRows.map(obj => {
+        const deg: Degree = {
+          name: String(obj.name || ''),
+        }
+        if (obj.id) deg.id = String(obj.id)
+        if (obj.description) deg.description = String(obj.description)
+        const progIds = parseStringArray(obj.ProgramIDs || obj.programIDs || obj.programIds)
+        if (progIds.length > 0) {
+          deg.ProgramIDs = progIds
+          deg.programIDs = progIds
+          deg.programIds = progIds
+        }
+        if (obj.contact) deg.contact = String(obj.contact)
+        const urlVal = obj.url || obj.URL
+        if (urlVal) {
+          deg.url = String(urlVal)
+          deg.URL = String(urlVal)
+        }
+        return deg
+      })
+    },
+  },
+
+  proofs_of_competency: {
+    type: 'proofs_of_competency',
+    label: 'Proofs of Competency',
+    icon: 'mdi-file-certificate-outline',
+    description: 'Assessment methods, exams, assignments, and duration.',
+    entityName: 'Proof of Competency',
+    fields: [
+      {
+        key: 'name',
+        label: 'Name',
+        required: true,
+        type: 'string',
+        description: 'Name or title of the proof of competency (e.g. Final Written Exam)',
+        aliases: ['name', 'title', 'bezeichnung', 'pruefung', 'exam', 'assessment', 'proof', 'proof_name'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Detailed description or criteria for the assessment',
+        aliases: ['description', 'beschreibung', 'details', 'criteria', 'desc'],
+      },
+      {
+        key: 'answerFormats',
+        label: 'Answer Formats',
+        required: false,
+        type: 'enum',
+        description: 'Comma/pipe separated list: written, oral, multipleChoice, freeText',
+        options: ['written', 'oral', 'multipleChoice', 'freeText', 'Written', 'Oral', 'Multiple Choice', 'Free Text', 'schriftlich', 'muendlich'],
+        aliases: ['answerformats', 'answer_formats', 'answer formats', 'formats', 'format', 'assessmenttype', 'assessment_type', 'multiplechoice', 'multiple_choice', 'freetext', 'free_text', 'art', 'form'],
+      },
+      {
+        key: 'assignmentScope',
+        label: 'Assignment Type (Individual / Group)',
+        required: false,
+        type: 'enum',
+        description: 'individual or group',
+        options: ['individual', 'group', 'Individual', 'Group', 'einzelarbeit', 'gruppenarbeit'],
+        defaultValue: 'individual',
+        aliases: ['assignmentscope', 'assignment_scope', 'assignment_type', 'individual_group', 'group_assignment', 'scope'],
+      },
+      {
+        key: 'durationMinutes',
+        label: 'Duration of Test (min)',
+        required: false,
+        type: 'number',
+        description: 'Test duration in minutes',
+        aliases: ['durationminutes', 'duration_minutes', 'duration', 'dauer', 'pruefungsdauer', 'minutes', 'minuten', 'zeit'],
+      },
+      {
+        key: 'competencyIds',
+        label: 'Competency IDs',
+        required: false,
+        type: 'string',
+        description: 'Referenced competency IDs (comma, semicolon, or pipe separated)',
+        aliases: ['competencyids', 'competency_ids', 'competency ids', 'competencyid', 'competency_id', 'competencies', 'kompetenzen'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): ProofOfCompetency[] => {
+      return mappedRows.map(obj => {
+        const formats: AnswerFormat[] = []
+        const raw = obj.answerFormats !== undefined
+          ? obj.answerFormats
+          : [obj.written, obj.oral].filter(v => v !== undefined && v !== '')
+        for (const f of parseStringArray(raw)) {
+          const norm = f.toLowerCase().replace(/[\s_-]/g, '')
+          if (norm === 'written' || norm === 'schriftlich') formats.push('written')
+          else if (norm === 'oral' || norm === 'muendlich') formats.push('oral')
+          else if (norm === 'multiplechoice' || norm === 'mc') formats.push('multipleChoice')
+          else if (norm === 'freetext' || norm === 'essay') formats.push('freeText')
+        }
+
+        let assignmentScope: 'individual' | 'group' = 'individual'
+        const as = String(obj.assignmentScope || '').toLowerCase().trim()
+        if (as.includes('group') || as.includes('grupp')) {
+          assignmentScope = 'group'
+        }
+
+        const proof: ProofOfCompetency = {
+          name: String(obj.name || 'Unnamed Proof of Competency'),
+          answerFormats: formats,
+          assignmentScope,
+        }
+
+        if (obj.description) proof.description = String(obj.description)
+        if (obj.durationMinutes !== undefined && obj.durationMinutes !== '') {
+          proof.durationMinutes = Number(obj.durationMinutes) || undefined
+        }
+        const compIds = parseStringArray(obj.competencyIds)
+        if (compIds.length > 0) proof.competencyIds = compIds
+
+        return proof
+      })
+    },
+  },
+
   proofs_of_knowledge: {
     type: 'proofs_of_knowledge',
     label: 'Proofs of Knowledge',
@@ -945,6 +1344,496 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         }
 
         return proof
+      })
+    },
+  },
+
+  availability: {
+    type: 'availability',
+    label: 'Lecturer Availability',
+    icon: 'mdi-calendar-clock',
+    description: 'Recurring weekly availability for lecturers.',
+    entityName: 'Availability',
+    fields: [
+      {
+        key: 'lecturerId',
+        label: 'Lecturer ID',
+        required: true,
+        type: 'string',
+        description: 'ID or name of the lecturer',
+        aliases: ['lecturer_id', 'lecturer id', 'lecturer', 'dozent', 'dozentid', 'instructor', 'instructor_id', 'teacher'],
+      },
+      {
+        key: 'weekId',
+        label: 'Week ID',
+        required: false,
+        type: 'string',
+        description: 'ID of the week this availability slot applies to',
+        aliases: ['week_id', 'week id', 'week', 'woche'],
+      },
+      {
+        key: 'weekday',
+        label: 'Weekday',
+        required: false,
+        type: 'enum',
+        description: 'Day of the week for recurring availability',
+        options: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+          'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag',
+          'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        aliases: ['weekday', 'day', 'day_of_week', 'wochentag', 'tag', 'dayofweek'],
+      },
+      {
+        key: 'startTime',
+        label: 'Start Time',
+        required: false,
+        type: 'string',
+        description: 'Start time of availability slot (HH:MM format)',
+        aliases: ['start_time', 'start', 'von', 'begin', 'beginn', 'start_time'],
+      },
+      {
+        key: 'endTime',
+        label: 'End Time',
+        required: false,
+        type: 'string',
+        description: 'End time of availability slot (HH:MM format)',
+        aliases: ['end_time', 'end', 'bis', 'ende', 'end_time'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): LecturerAvailability[] => {
+      return mappedRows.map(row => {
+        let wd = String(row.weekday || 'monday').toLowerCase().trim()
+        const dayMap: Record<string, string> = {
+          montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
+          donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
+          mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
+          fri: 'friday', sat: 'saturday', sun: 'sunday',
+        }
+        wd = dayMap[wd] || wd
+        const avail: LecturerAvailability = {
+          lecturerId: String(row.lecturerId || '').trim(),
+          weekday: wd as any,
+          startTime: String(row.startTime || '08:00'),
+          endTime: String(row.endTime || '12:00'),
+        }
+        if (row.weekId) avail.weekId = String(row.weekId).trim()
+        return avail
+      })
+    },
+  },
+
+  scheduling_rules: {
+    type: 'scheduling_rules',
+    label: 'Scheduling Rules',
+    icon: 'mdi-tune-vertical',
+    description: 'Constraint rules for CP-SAT timetable generation.',
+    entityName: 'Rule',
+    fields: [
+      {
+        key: 'ruleType',
+        label: 'Rule Type',
+        required: true,
+        type: 'enum',
+        description: 'The scheduling constraint to apply',
+        options: [
+          'NO_TEACHER_OVERLAP', 'ROOM_CAPACITY', 'ROOM_OCCUPANCY', 'UNAVAILABLE_DATES',
+          'ALLOWED_WEEKDAYS', 'ALLOWED_PHASE', 'FIXED_DAY', 'WEEKLY_BALANCE',
+          'AVOID_FRIDAY_AFTERNOON', 'AVOID_SATURDAY', 'PREFER_MORNING',
+          'AVOID_EVENING', 'MINIMIZE_STUDENT_GAPS', 'PREFER_EARLY_DATES',
+        ],
+        aliases: ['ruletype', 'rule_type', 'rule type', 'constraint_id', 'constraint', 'rule', 'regel', 'constraintid', 'rule_id'],
+      },
+      {
+        key: 'semesterId',
+        label: 'Semester ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the semester this rule applies to',
+        aliases: ['semester_id', 'semester id', 'semester', 'semesterid'],
+      },
+      {
+        key: 'category',
+        label: 'Category',
+        required: true,
+        type: 'enum',
+        description: 'hard (must satisfy) or soft (preference with penalty)',
+        options: ['hard', 'soft'],
+        aliases: ['category', 'kategorie', 'type', 'constraint_category'],
+      },
+      {
+        key: 'weight',
+        label: 'Priority Level',
+        required: false,
+        type: 'string',
+        description: 'Priority for soft constraints: nice-to-have(1), preferred(5), desired(10), almost mandatory(20). Also accepts numeric values.',
+        defaultValue: 1,
+        aliases: ['weight', 'gewicht', 'penalty', 'priority', 'priority_level'],
+      },
+      {
+        key: 'enabled',
+        label: 'Enabled',
+        required: false,
+        type: 'boolean',
+        description: 'Whether this rule is active (true/false)',
+        defaultValue: true,
+        aliases: ['enabled', 'active', 'aktiv', 'is_enabled'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Human-readable description of the rule',
+        aliases: ['description', 'beschreibung', 'desc', 'text', 'note'],
+      },
+      {
+        key: 'appliesTo',
+        label: 'Applies To',
+        required: false,
+        type: 'string',
+        description: 'Module IDs or names this rule applies to (comma-separated, empty = all)',
+        aliases: ['applies_to', 'applies', 'targets', 'modules', 'module_ids', 'gilt_fuer'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): SchedulingRule[] => {
+      const WEIGHT_MAP: Record<string, number> = {
+        'nice-to-have': 1,
+        'nice to have': 1,
+        'preferred': 5,
+        'desired': 10,
+        'almost mandatory': 20,
+        'almost-mandatory': 20,
+      }
+      return mappedRows.map(row => {
+        let weight: number
+        const rawWeight = String(row.weight ?? '1').trim().toLowerCase()
+        if (WEIGHT_MAP[rawWeight] !== undefined) {
+          weight = WEIGHT_MAP[rawWeight]
+        } else {
+          weight = Number(row.weight) || 1
+        }
+        const rule: SchedulingRule = {
+          ruleType: String(row.ruleType || ''),
+          semesterId: String(row.semesterId || ''),
+          category: row.category === 'soft' ? 'soft' : 'hard',
+          weight,
+          enabled: parseBoolean(row.enabled ?? true),
+          description: row.description ? String(row.description) : undefined,
+          appliesTo: row.appliesTo ? parseStringArray(row.appliesTo) : undefined,
+          params: undefined,
+        }
+        if (rule.category === 'hard') {
+          rule.weight = 1
+        }
+        return rule
+      })
+    },
+  },
+
+  matrix_competencies: {
+    type: 'matrix_competencies',
+    label: 'Matrix Competencies',
+    icon: 'mdi-view-grid',
+    description: 'Competency matrix axes (x/y) for curriculum mapping.',
+    entityName: 'Matrix Competency',
+    fields: [
+      {
+        key: 'competencyMatrixId',
+        label: 'Matrix ID',
+        required: false,
+        type: 'string',
+        description: 'ID of the parent competency matrix',
+        aliases: ['competencymatrixid', 'competency_matrix_id', 'matrix_id', 'matrixid', 'matrix'],
+      },
+      {
+        key: 'name',
+        label: 'Name',
+        required: true,
+        type: 'string',
+        description: 'Name of the matrix competency axis',
+        aliases: ['name', 'title', 'bezeichnung', 'kompetenz'],
+      },
+      {
+        key: 'category',
+        label: 'Category',
+        required: false,
+        type: 'string',
+        description: 'Category of the competency',
+        aliases: ['category', 'kategorie', 'area', 'group', 'type'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Description of the matrix competency',
+        aliases: ['description', 'beschreibung', 'details', 'desc'],
+      },
+      {
+        key: 'level',
+        label: 'Level',
+        required: false,
+        type: 'string',
+        description: 'Competency level',
+        aliases: ['level', 'niveau', 'stufe', 'kompetenzstufe'],
+      },
+      {
+        key: 'matrixAxis',
+        label: 'Matrix Axis',
+        required: true,
+        type: 'enum',
+        description: 'Whether this competency defines the x-axis or y-axis',
+        options: ['x', 'y'],
+        defaultValue: 'x',
+        aliases: ['matrixaxis', 'matrix_axis', 'axis', 'achse'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): MatrixCompetency[] => {
+      return mappedRows.map(obj => {
+        const mc: MatrixCompetency = {
+          name: String(obj.name || 'Unnamed Matrix Competency'),
+          matrixAxis: obj.matrixAxis === 'y' ? 'y' : 'x',
+        }
+        if (obj.competencyMatrixId) mc.competencyMatrixId = String(obj.competencyMatrixId)
+        if (obj.category) mc.category = String(obj.category)
+        if (obj.description) mc.description = String(obj.description)
+        if (obj.level) mc.level = String(obj.level)
+        return mc
+      })
+    },
+  },
+
+  room_availability: {
+    type: 'room_availability',
+    label: 'Room Availability',
+    icon: 'mdi-calendar-clock-outline',
+    description: 'Recurring weekly availability for rooms.',
+    entityName: 'Room Availability',
+    fields: [
+      {
+        key: 'roomId',
+        label: 'Room ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the room',
+        aliases: ['room_id', 'room id', 'room', 'roomid', 'raum', 'raum_id'],
+      },
+      {
+        key: 'weekId',
+        label: 'Week ID',
+        required: false,
+        type: 'string',
+        description: 'ID of the week this availability slot applies to',
+        aliases: ['week_id', 'week id', 'week', 'woche'],
+      },
+      {
+        key: 'weekday',
+        label: 'Weekday',
+        required: true,
+        type: 'enum',
+        description: 'Day of the week for recurring availability',
+        options: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunnday',
+          'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
+        aliases: ['weekday', 'day', 'day_of_week', 'wochentag', 'tag'],
+      },
+      {
+        key: 'startTime',
+        label: 'Start Time',
+        required: true,
+        type: 'string',
+        description: 'Start time of availability slot (HH:MM format)',
+        aliases: ['start_time', 'start', 'von', 'begin', 'beginn'],
+      },
+      {
+        key: 'endTime',
+        label: 'End Time',
+        required: true,
+        type: 'string',
+        description: 'End time of availability slot (HH:MM format)',
+        aliases: ['end_time', 'end', 'bis', 'ende'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): RoomAvailability[] => {
+      return mappedRows.map(row => {
+        let wd = String(row.weekday || 'monday').toLowerCase().trim()
+        const dayMap: Record<string, string> = {
+          montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
+          donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
+          mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
+          fri: 'friday', sat: 'saturday', sun: 'sunday',
+        }
+        wd = dayMap[wd] || wd
+        const avail: RoomAvailability = {
+          roomId: String(row.roomId || '').trim(),
+          weekday: wd as any,
+          startTime: String(row.startTime || '08:00'),
+          endTime: String(row.endTime || '12:00'),
+        }
+        if (row.weekId) avail.weekId = String(row.weekId).trim()
+        return avail
+      })
+    },
+  },
+
+  weeks: {
+    type: 'weeks',
+    label: 'Weeks',
+    icon: 'mdi-calendar-week',
+    description: 'Calendar weeks within a semester, including days off.',
+    entityName: 'Week',
+    fields: [
+      {
+        key: 'semesterId',
+        label: 'Semester ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the semester this week belongs to',
+        aliases: ['semester_id', 'semester id', 'semester', 'semesterid'],
+      },
+      {
+        key: 'semesterWeek',
+        label: 'Semester Week',
+        required: true,
+        type: 'number',
+        description: 'Week number within the semester (1-based)',
+        aliases: ['semesterweek', 'semester_week', 'semester week', 'week_number', 'woche', 'kalenderwoche'],
+      },
+      {
+        key: 'startDate',
+        label: 'Start Date',
+        required: true,
+        type: 'string',
+        description: 'First day of the week (YYYY-MM-DD)',
+        aliases: ['start_date', 'start date', 'start', 'beginn', 'von'],
+      },
+      {
+        key: 'endDate',
+        label: 'End Date',
+        required: true,
+        type: 'string',
+        description: 'Last day of the week (YYYY-MM-DD)',
+        aliases: ['end_date', 'end date', 'end', 'ende', 'bis'],
+      },
+      {
+        key: 'daysOff',
+        label: 'Days Off',
+        required: false,
+        type: 'string',
+        description: 'Dates without teaching (comma-separated YYYY-MM-DD)',
+        aliases: ['daysoff', 'days_off', 'days off', 'holidays', 'feiertage', 'freie_tage'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): Week[] => {
+      return mappedRows.map(row => {
+        const week: Week = {
+          semesterId: String(row.semesterId || '').trim(),
+          semesterWeek: Number(row.semesterWeek) || 1,
+          startDate: String(row.startDate || '').trim(),
+          endDate: String(row.endDate || '').trim(),
+        }
+        const daysOff = parseStringArray(row.daysOff)
+        if (daysOff.length > 0) week.daysOff = daysOff
+        if (row.id) week.id = String(row.id)
+        return week
+      })
+    },
+  },
+
+  schedule_entries: {
+    type: 'schedule_entries',
+    label: 'Schedule Entries',
+    icon: 'mdi-calendar-clock-outline',
+    description: 'Scheduled sessions within a week: modules, rooms, classes, lecturers, weekday and time window.',
+    entityName: 'Schedule Entry',
+    fields: [
+      {
+        key: 'weekId',
+        label: 'Week ID',
+        required: true,
+        type: 'string',
+        description: 'ID of the week this entry belongs to',
+        aliases: ['week_id', 'week id', 'week', 'woche'],
+      },
+      {
+        key: 'moduleIds',
+        label: 'Module IDs',
+        required: false,
+        type: 'string',
+        description: 'Module IDs (comma, semicolon, or pipe separated)',
+        aliases: ['moduleids', 'module_ids', 'module ids', 'modules', 'modul', 'modul_ids'],
+      },
+      {
+        key: 'roomIds',
+        label: 'Room IDs',
+        required: false,
+        type: 'string',
+        description: 'Room IDs (comma, semicolon, or pipe separated)',
+        aliases: ['roomids', 'room_ids', 'room ids', 'rooms', 'raum', 'raum_ids'],
+      },
+      {
+        key: 'classIds',
+        label: 'Class IDs',
+        required: false,
+        type: 'string',
+        description: 'Class IDs (comma, semicolon, or pipe separated)',
+        aliases: ['classids', 'class_ids', 'class ids', 'classes', 'klasse', 'klassen'],
+      },
+      {
+        key: 'lecturerIds',
+        label: 'Lecturer IDs',
+        required: false,
+        type: 'string',
+        description: 'Lecturer IDs (comma, semicolon, or pipe separated)',
+        aliases: ['lecturerids', 'lecturer_ids', 'lecturer ids', 'lecturers', 'dozent', 'dozenten'],
+      },
+      {
+        key: 'weekday',
+        label: 'Weekday',
+        required: true,
+        type: 'enum',
+        description: 'Day of the week for the session',
+        options: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+          'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'],
+        aliases: ['weekday', 'day', 'day_of_week', 'wochentag', 'tag'],
+      },
+      {
+        key: 'startTime',
+        label: 'Start Time',
+        required: true,
+        type: 'string',
+        description: 'Start time (HH:MM format)',
+        aliases: ['start_time', 'start', 'von', 'begin', 'beginn'],
+      },
+      {
+        key: 'endTime',
+        label: 'End Time',
+        required: true,
+        type: 'string',
+        description: 'End time (HH:MM format)',
+        aliases: ['end_time', 'end', 'bis', 'ende'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): ScheduleEntry[] => {
+      return mappedRows.map(row => {
+        let wd = String(row.weekday || 'monday').toLowerCase().trim()
+        const dayMap: Record<string, string> = {
+          montag: 'monday', dienstag: 'tuesday', mittwoch: 'wednesday',
+          donnerstag: 'thursday', freitag: 'friday', samstag: 'saturday', sonntag: 'sunday',
+          mon: 'monday', tue: 'tuesday', wed: 'wednesday', thu: 'thursday',
+          fri: 'friday', sat: 'saturday', sun: 'sunday',
+        }
+        wd = dayMap[wd] || wd
+        const entry: ScheduleEntry = {
+          weekId: String(row.weekId || '').trim(),
+          moduleIds: parseStringArray(row.moduleIds),
+          roomIds: parseStringArray(row.roomIds),
+          classIds: parseStringArray(row.classIds),
+          lecturerIds: parseStringArray(row.lecturerIds),
+          weekday: wd as any,
+          startTime: String(row.startTime || '08:00'),
+          endTime: String(row.endTime || '12:00'),
+        }
+        if (row.id) entry.id = String(row.id)
+        return entry
       })
     },
   },

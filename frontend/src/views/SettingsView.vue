@@ -46,7 +46,7 @@
               />
               <v-text-field
                 v-if="providerType === 'docpouch'"
-                v-model="oidcRegistrationToken" label="OIDC Registration Token"
+                v-model="oidcRegistrationToken" label="OIDC Registration Token (docPouch)"
                 type="password" placeholder="TestToken" variant="outlined" density="compact"
               />
               <v-alert v-if="registerError" type="error" density="compact" class="mt-2">{{ registerError }}</v-alert>

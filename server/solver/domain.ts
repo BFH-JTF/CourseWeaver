@@ -18,6 +18,36 @@ export interface Room {
   capacity: number
 }
 
+export interface RoomAvailability {
+  id: string
+  roomId: string
+  weekId?: string
+  weekday: string
+  startTime: string
+  endTime: string
+}
+
+export interface Week {
+  id: string
+  semesterId: string
+  semesterWeek: number
+  startDate: string
+  endDate: string
+  daysOff?: string[]
+}
+
+export interface ScheduleEntry {
+  id: string
+  weekId: string
+  moduleIds: string[]
+  roomIds: string[]
+  classIds: string[]
+  lecturerIds: string[]
+  weekday: string
+  startTime: string
+  endTime: string
+}
+
 export interface OnCampusDay {
   id: string
   date: string // ISO-Datum YYYY-MM-DD
@@ -70,4 +100,21 @@ export interface Module {
   prohibitedDayTags?: string[]
   preferredDayTags?: string[]
   undesiredDayTags?: string[]
+  competencyIds?: string[]
+  proofOfCompetencyIds?: string[]
+}
+
+export interface Semester {
+  id: string
+  name: string
+  code?: string
+  startDate: string
+  endDate: string
+}
+
+export interface CurriculumVersion {
+  id: string
+  name: string
+  versionNumber: number
+  programId?: string
 }
