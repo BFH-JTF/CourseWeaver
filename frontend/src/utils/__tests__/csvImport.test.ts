@@ -421,7 +421,7 @@ console.log('✓ Module concept Excel parsing + learning Cycles transform passed
 const roomsFromText = parseImportText('rooms', 'name,room_number,floor,room_type,capacity_seats\nLab 2,B12,1,computer_lab,30')
 assert.strictEqual(roomsFromText.length, 1)
 assert.strictEqual((roomsFromText[0] as any).name, 'Lab 2')
-assert.strictEqual((roomsFromText[0] as any).capacity.seats, 30)
+assert.strictEqual((roomsFromText[0] as any).capacity, 30)
 console.log('✓ parseImportText central routing passed')
 
 console.log('--- All CSV Import Unit Tests Passed Successfully ---')

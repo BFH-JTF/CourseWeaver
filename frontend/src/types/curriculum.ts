@@ -59,7 +59,12 @@ export interface ModuleConstraint {
 export interface Module extends AclInfo {
   id?: string
   _id?: string
+  code?: string
   name: string
+  /** ECTS-Studienzeit (Selbststudium in Stunden) */
+  selfStudyHours?: number
+  /** Studienprogramme, denen das Modul zugeordnet ist */
+  studyProgramIds?: string[]
   description?: string
   degreeIds?: string[]
   /** @deprecated Use degreeIds instead */
@@ -70,7 +75,6 @@ export interface Module extends AclInfo {
   url?: string
   /** @deprecated Use url instead */
   URL?: string
-  code?: string
   creditPoints?: number
   contactHours?: number
   constraints?: ModuleConstraint[]
@@ -80,3 +84,14 @@ export interface Module extends AclInfo {
 }
 
 export type ModuleExport = Module[]
+
+/** StudyProgram:Degree-Studiengang für den Lernzyklus-Import (Schritt A). */
+export interface StudyProgram {
+  _id?: string
+  id?: string
+  name: string
+  degreeType?: string
+  description?: string
+}
+
+export type StudyProgramExport = Program[]

@@ -40,6 +40,7 @@ export const EntityTables = {
   DEPARTMENT: 'departments',
   PROGRAM: 'programs',
   DEGREE: 'degrees',
+  STUDY_PROGRAM: 'study_programs',
   CLASS: 'classes',
 } as const
 

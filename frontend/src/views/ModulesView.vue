@@ -66,7 +66,7 @@
               <v-col cols="12" md="3">
                 <v-select
                   v-model="moduleForm.studyProgramIds"
-                  :items="studyPrograms.map(p => ({ title: p.name ?? p._id, value: p._id ?? p.id }))"
+                  :items="studyPrograms.map((p: StudyProgram) => ({ title: p.name ?? p._id, value: p._id ?? p.id}))"
                   label="Study program(s)" multiple chips variant="outlined" density="compact"
                 />
               </v-col>
@@ -96,16 +96,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { ImportType } from '@/types/csvImport'
+import type { StudyProgram } from '@/types/curriculum'
 
 const store = useCurriculumStore()
-const { modules, studyPrograms } = storeToRefs(store)
-void studyPrograms
+const { modules } = storeToRefs(store)
+const studyPrograms = computed(() => (store.programs ?? []) as unknown as StudyProgram[])
 
 const csvImportDialogOpen = ref(false)
 const snackbar = ref(false)
@@ -119,7 +120,7 @@ function handleCsvImported(payload: { type: ImportType; count: number; items: an
 
 onMounted(() => {
   store.fetchCurriculumVersions()
-  store.fetchStudyPrograms()
+  store.fetchPrograms()
   store.fetchModules()
 })
 

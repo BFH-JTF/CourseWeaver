@@ -25,7 +25,6 @@ export function useCsvImport() {
     weeks: EntityTables.WEEK,
     schedule_entries: EntityTables.SCHEDULE_ENTRY,
     matrix_competencies: EntityTables.MATRIX_COMPETENCY,
->>>>>>> origin/main:src/composables/useCsvImport.ts
   }
 
   async function saveImportedData(type: ImportType, items: any[]): Promise<number> {

@@ -5,7 +5,9 @@
  */
 export type SkillLevel = 'Introduction' | 'Regular' | 'Master' | 'I' | 'R' | 'M'
 
-export interface Competency {
+import type { AclInfo } from '@/types/curriculum'
+
+export interface Competency extends AclInfo {
   id?: string
   _id?: string
   frameworkId: string
@@ -17,12 +19,6 @@ export interface Competency {
   order?: number
   xMatrixCompetencyId?: string
   yMatrixCompetencyId?: string
-}
-
-export interface AclInfo {
-  ownerId?: string
-  adminUserIds?: string[]
-  isPublic?: boolean
 }
 
 export interface CompetencyFramework {

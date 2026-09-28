@@ -6,16 +6,13 @@ import type { Room } from '@/types/room'
 function emptyRoom(): Room {
   return {
     name: '',
-    room_type: 'classroom',
+    roomType: 'classroom',
     floor: 0,
-    room_number: '',
-    capacity: {
-      seats: 0,
-    },
+    roomNumber: '',
+    capacity: 0,
     accessibility: {
       step_free_access: false,
     },
-    availability: {},
   }
 }
 
