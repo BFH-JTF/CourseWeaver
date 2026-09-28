@@ -38,11 +38,6 @@ const router = createRouter({
           component: () => import('@/components/curriculum/CurriculumMappingPage.vue'),
         },
         {
-          path: 'constraints',
-          name: 'constraints',
-          component: () => import('@/views/ConstraintsView.vue'),
-        },
-        {
           path: 'taxonomy',
           name: 'taxonomy',
           component: () => import('@/views/TaxonomyView.vue'),
@@ -61,25 +56,13 @@ const router = createRouter({
           component: () => import('@/views/MappingView.vue'),
         },
         {
-          path: 'schedule',
-          name: 'schedule',
-          component: () => import('@/views/ScheduleView.vue'),
-        },
-        {
-          path: 'rooms',
-          name: 'rooms',
-          component: () => import('@/views/RoomsView.vue'),
-        },
-        {
           path: 'todos',
           name: 'todos',
           component: () => import('@/views/TodosView.vue'),
         },
-        // Konflikte: in der Planung integriert (eigene Route entfernt)
-
-        // Berichte: in der Mapping-Ansicht integriert (eigene Route entfernt)
-
         {
+          // Konflikte: in der Planung integriert (eigene Route entfernt)
+          // Berichte: in der Mapping-Ansicht integriert (eigene Route entfernt)
           path: 'admin',
           name: 'admin',
           component: () => import('@/views/AdminView.vue'),

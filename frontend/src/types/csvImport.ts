@@ -1,6 +1,4 @@
 export type ImportType =
-  | 'rooms'
-  | 'locations'
   | 'competencies'
   | 'modules'
   | 'proofs_of_knowledge'
@@ -10,11 +8,6 @@ export type ImportType =
   | 'departments'
   | 'programs'
   | 'degrees'
-  | 'availability'
-  | 'scheduling_rules'
-  | 'room_availability'
-  | 'weeks'
-  | 'schedule_entries'
   | 'matrix_competencies'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'

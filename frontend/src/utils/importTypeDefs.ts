@@ -37,16 +37,6 @@ export const IMPORT_TYPE_DEFS: ImportTypeDef[] = [
     label: 'Proofs of Knowledge',
     signatureColumns: ['assessmenttype', 'multiplechoice', 'freetext', 'assignmentscope'],
   },
-  {
-    id: 'rooms',
-    label: 'Rooms',
-    signatureColumns: ['room_number', 'capacity_seats', 'room_type'],
-  },
-  {
-    id: 'locations',
-    label: 'Locations',
-    signatureColumns: ['building', 'campus', 'address'],
-  },
 ]
 
 /** Kap. Spec 3 — Score-Suche über Signatur-Spalten je Datei */

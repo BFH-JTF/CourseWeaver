@@ -8,8 +8,6 @@ export function useCsvImport() {
   const importError = ref<string | null>(null)
 
   const entityTableMap: Record<ImportType, string> = {
-    rooms: EntityTables.ROOM,
-    locations: EntityTables.LOCATION,
     competencies: EntityTables.COMPETENCY,
     modules: EntityTables.MODULE,
     learning_cycles: EntityTables.CURRICULUM_MODULE,
@@ -19,11 +17,6 @@ export function useCsvImport() {
     departments: EntityTables.DEPARTMENT,
     programs: EntityTables.PROGRAM,
     degrees: EntityTables.DEGREE,
-    availability: EntityTables.LECTURER_AVAILABILITY,
-    scheduling_rules: EntityTables.SCHEDULING_RULE,
-    room_availability: EntityTables.ROOM_AVAILABILITY,
-    weeks: EntityTables.WEEK,
-    schedule_entries: EntityTables.SCHEDULE_ENTRY,
     matrix_competencies: EntityTables.MATRIX_COMPETENCY,
   }
 

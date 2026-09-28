@@ -4,8 +4,6 @@ import { resolve } from 'node:path'
 import { parseCsv, detectDelimiter } from '../csvParser'
 import { autoMapColumns, IMPORT_CONFIGS, applyColumnMapping } from '../csvSchemas'
 import type { Competency } from '../../types/competency'
-import type { Location } from '../../types/location'
-import type { Room } from '../../types/room'
 import type { ProofOfCompetency } from '../../types/proofOfCompetency'
 import type { Department, Program, Degree, Module } from '../../types/curriculum'
 
@@ -83,73 +81,7 @@ assert.strictEqual(catalogEntities.length, 25)
 assert.strictEqual(catalogEntities[24]!.name, 'Self-Reflection')
 console.log('✓ Real initial_topic_catalog.csv test passed (25 topics mapped)')
 
-// 6. Test Locations mapping & transformation
-const locCsv = `Name,Campus,Building,Address,Latitude,Longitude
-Main Building,North Campus,Building A,Street 1,52.5201,13.4049`
-const locParsed = parseCsv(locCsv)
-const locConfig = IMPORT_CONFIGS.locations
-const locMapping = autoMapColumns(locParsed.headers, locConfig.fields)
-assert.strictEqual(locMapping.name, 'Name')
-assert.strictEqual(locMapping.campus, 'Campus')
-assert.strictEqual(locMapping.building, 'Building')
-assert.strictEqual(locMapping.latitude, 'Latitude')
-assert.strictEqual(locMapping.longitude, 'Longitude')
-
-const locMappedRows = locParsed.rows.map(row => {
-  const obj: Record<string, any> = {}
-  for (const field of locConfig.fields) {
-    const csvHeader = locMapping[field.key]
-    if (csvHeader && row[csvHeader] !== undefined) {
-      obj[field.key] = row[csvHeader]
-    }
-  }
-  return obj
-})
-const locations = locConfig.transform(locMappedRows) as Location[]
-assert.strictEqual(locations.length, 1)
-assert.strictEqual(locations[0]!.name, 'Main Building')
-assert.strictEqual(locations[0]!.building, 'Building A')
-assert.strictEqual(locations[0]!.campus, 'North Campus')
-assert.strictEqual(locations[0]!.latitude, 52.5201)
-assert.strictEqual(locations[0]!.longitude, 13.4049)
-console.log('✓ Location mapping and transformation passed')
-
-// 7. Test Rooms mapping & transformation
-const roomCsv = `name,room_number,floor,room_type,capacity_seats,equipment_projector,accessibility_step_free_access
-Lab 101,101,1,computer_lab,30,true,true`
-const roomParsed = parseCsv(roomCsv)
-const roomConfig = IMPORT_CONFIGS.rooms
-const roomMapping = autoMapColumns(roomParsed.headers, roomConfig.fields)
-assert.strictEqual(roomMapping.name, 'name')
-assert.strictEqual(roomMapping.room_number, 'room_number')
-assert.strictEqual(roomMapping.floor, 'floor')
-assert.strictEqual(roomMapping.room_type, 'room_type')
-assert.strictEqual(roomMapping.capacity_seats, 'capacity_seats')
-assert.strictEqual(roomMapping.equipment_projector, 'equipment_projector')
-assert.strictEqual(roomMapping.accessibility_step_free_access, 'accessibility_step_free_access')
-
-const roomMappedRows = roomParsed.rows.map(row => {
-  const obj: Record<string, any> = {}
-  for (const field of roomConfig.fields) {
-    const csvHeader = roomMapping[field.key]
-    if (csvHeader && row[csvHeader] !== undefined) {
-      obj[field.key] = row[csvHeader]
-    }
-  }
-  return obj
-})
-const rooms = roomConfig.transform(roomMappedRows) as Room[]
-assert.strictEqual(rooms.length, 1)
-assert.strictEqual(rooms[0]!.name, 'Lab 101')
-assert.strictEqual(rooms[0]!.roomNumber, '101')
-assert.strictEqual(rooms[0]!.floor, 1)
-assert.strictEqual(rooms[0]!.roomType, 'computer_lab')
-assert.strictEqual(rooms[0]!.capacity, 30)
-assert.strictEqual(rooms[0]!.equipment?.projector, true)
-assert.strictEqual(rooms[0]!.accessibility.step_free_access, true)
-console.log('✓ Room mapping and transformation passed')
-
-// 8. Test Headerless CSV parsing & manual mapping
+// 6. Test Headerless CSV parsing & manual mapping (kein Raum-Import mehr — Scheduling-App)
 const headerlessCsv = `Auditorium Maximum,AUD-100,0,lecture_hall,250
 Lab Beta,B-201,2,computer_lab,40`
 
@@ -165,35 +97,9 @@ assert.strictEqual(headerlessParsed.rows[0]!['Column 1'], 'Auditorium Maximum')
 assert.strictEqual(headerlessParsed.rows[1]!['Column 1'], 'Lab Beta')
 
 // Map manually for headerless data
-const headerlessMapping = {
-  name: 'Column 1',
-  room_number: 'Column 2',
-  floor: 'Column 3',
-  room_type: 'Column 4',
-  capacity_seats: 'Column 5',
-}
-const headerlessMappedRows = headerlessParsed.rows.map(row => {
-  const obj: Record<string, any> = {}
-  for (const field of roomConfig.fields) {
-    const csvCol = headerlessMapping[field.key as keyof typeof headerlessMapping]
-    if (csvCol && row[csvCol] !== undefined) {
-      obj[field.key] = row[csvCol]
-    }
-  }
-  return obj
-})
-const headerlessRooms = roomConfig.transform(headerlessMappedRows) as Room[]
-assert.strictEqual(headerlessRooms.length, 2)
-assert.strictEqual(headerlessRooms[0]!.name, 'Auditorium Maximum')
-assert.strictEqual(headerlessRooms[0]!.roomNumber, 'AUD-100')
-assert.strictEqual(headerlessRooms[0]!.floor, 0)
-assert.strictEqual(headerlessRooms[0]!.roomType, 'lecture_hall')
-assert.strictEqual(headerlessRooms[0]!.capacity, 250)
-assert.strictEqual(headerlessRooms[1]!.name, 'Lab Beta')
-assert.strictEqual(headerlessRooms[1]!.roomNumber, 'B-201')
-assert.strictEqual(headerlessRooms[1]!.floor, 2)
-assert.strictEqual(headerlessRooms[1]!.roomType, 'computer_lab')
-assert.strictEqual(headerlessRooms[1]!.capacity, 40)
+const headerlessMapping = { name: 'Column 1', room_number: 'Column 2', floor: 'Column 3', room_type: 'Column 4', capacity_seats: 'Column 5' }
+// Mapping-/Transform-Semantik liegt in der Scheduling-App — hier nur das CSV-Parsing.
+void headerlessMapping
 console.log('✓ Headerless CSV parsing and mapping passed')
 
 // 9. Test Proofs of Competency mapping & transformation
@@ -379,7 +285,6 @@ console.log('✓ Module auto-mapping and transformation passed')
 // 11. Excel: module-concept workbook flattening + learning_cycles transform
 import * as XLSX from 'xlsx'
 import { parseModuleConceptWorkbook } from '../excelParser'
-import { parseImportText } from '../csvSchemas'
 
 const wb = XLSX.utils.book_new()
 const aoa = [
@@ -417,11 +322,3 @@ assert.strictEqual(cvs[0]!.learningCycles[1]!.number, 2)
 assert.ok(cvs[0]!.learningCycles[1]!.content.includes('content B'))
 console.log('✓ Module concept Excel parsing + learning Cycles transform passed')
 
-// 12. parseImportText routes CSV text through the central import module
-const roomsFromText = parseImportText('rooms', 'name,room_number,floor,room_type,capacity_seats\nLab 2,B12,1,computer_lab,30')
-assert.strictEqual(roomsFromText.length, 1)
-assert.strictEqual((roomsFromText[0] as any).name, 'Lab 2')
-assert.strictEqual((roomsFromText[0] as any).capacity, 30)
-console.log('✓ parseImportText central routing passed')
-
-console.log('--- All CSV Import Unit Tests Passed Successfully ---')

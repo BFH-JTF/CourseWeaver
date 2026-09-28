@@ -5,7 +5,6 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { initDatabase } from './db'
 import { apiRouter } from './routes/api'
-import { timetableRouter } from './routes/timetable'
 
 dotenv.config()
 
@@ -46,9 +45,6 @@ if (apiToken) {
 }
 
 // REST API routes
-app.use('/api/timetable', timetableRouter)
-import { outlookRouter } from './routes/outlook.js'
-app.use('/api/outlook', outlookRouter)
 import { mappingRouter } from './routes/mapping.js'
 app.use('/api/mapping', mappingRouter)
 app.use('/api', apiRouter)

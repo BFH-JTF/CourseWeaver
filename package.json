@@ -13,19 +13,16 @@
     "typecheck": "vue-tsc --noEmit -p frontend/tsconfig.json && tsc -p tsconfig.server.json --noEmit",
     "lint": "eslint frontend/src/ --ext .ts,.vue",
     "lint:fix": "eslint frontend/src/ --ext .ts,.vue --fix",
-    "test": "tsx --tsconfig frontend/tsconfig.json frontend/src/utils/__tests__/csvImport.test.ts && tsx server/test/api.test.ts && tsx server/test/outlook.test.ts && tsx server/test/mapping.test.ts && tsx server/test/solver.test.ts",
-    "seed": "tsx server/seed-mock.ts",
-    "poc:timetable": "tsx server/solver/benchmarks/poc.ts",
-    "solver:bench": "tsx server/solver/benchmarks/run.ts"
+    "test": "tsx --tsconfig frontend/tsconfig.json frontend/src/utils/__tests__/csvImport.test.ts && tsx server/test/api.test.ts && tsx server/test/mapping.test.ts",
+    "seed": "tsx server/seed-mock.ts"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "@vue/devtools-api": "^8.2.1",
     "cors": "^2.8.6",
-    "cp-sat-ts": "file:vendor/cp-sat-typescript",
     "docpouch-client": "^1.2.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "or-tools-wasm": "^0.9.1",
     "pg": "^8.23.0",
     "pinia": "^4.0.3",
     "vue": "^3.5.42",

@@ -39,7 +39,7 @@ import TypeMismatchWarning from './TypeMismatchWarning.vue'
 import MandatoryFieldsList from './MandatoryFieldsList.vue'
 import type { ImportTypeDef } from '@/utils/importTypeDefs'
 import { detectImportType } from '@/utils/importTypeDefs'
-import { badgeClasses } from '@/utils/constraintUx'
+import { badgeClasses } from '@/utils/badgeUx'
 import type { ParsedFile } from '@/composables/useImportDialog'
 
 const props = defineProps<{
