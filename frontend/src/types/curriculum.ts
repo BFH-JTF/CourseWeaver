@@ -59,6 +59,10 @@ export interface ModuleConstraint {
 export interface Module extends AclInfo {
   id?: string
   _id?: string
+  /** Co-Teaching: dozenten-paar je Modul (Kap. 29.09.2026 Datenmodell: die meisten Kurse co-taught) */
+  instructor_ids?: string[]
+  /** data-model-comparison.md §3.1 — Kohorte (Class) */
+  classIds?: string[]
   code?: string
   name: string
   /** ECTS-Studienzeit (Selbststudium in Stunden) */

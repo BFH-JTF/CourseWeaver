@@ -38,9 +38,14 @@ const router = createRouter({
           component: () => import('@/components/curriculum/CurriculumMappingPage.vue'),
         },
         {
+          path: 'workload',
+          name: 'workload',
+          component: () => import('@/views/WorkloadView.vue'),
+        },
+        {
           path: 'modules',
           name: 'modules',
-          component: () => import('@/views/ModulesView.vue'),
+          component: () => import('@/views/ModuleCatalogView.vue'),
         },
         {
           path: 'taxonomy',

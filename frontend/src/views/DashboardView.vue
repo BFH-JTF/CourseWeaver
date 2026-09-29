@@ -7,7 +7,7 @@
 
     <v-row>
       <v-col cols="12" md="4">
-        <v-card variant="flat" class="pa-3 mb-4 card-lift" to="/modules" hover>
+        <v-card variant="flat" class="pa-3 mb-4 card-lift" to="/workload" hover>
           <div class="text-subtitle-1 font-weight-bold mb-2">{{ t('dashboard.programs') }}</div>
           <div v-for="p in programStats" :key="p.id" class="d-flex justify-space-between mb-1">
             <span class="text-body-2">{{ p.title }}</span>

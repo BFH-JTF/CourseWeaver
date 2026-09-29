@@ -42,6 +42,7 @@ export const EntityTables = {
   DEGREE: 'degrees',
   STUDY_PROGRAM: 'study_programs',
   CLASS: 'classes',
+  LC_CONTENT: 'lc_contents',
 } as const
 
 export type EntityTableName = (typeof EntityTables)[keyof typeof EntityTables]
