@@ -28,6 +28,73 @@ mappingRouter.get('/catalog', (_req, res) => {
   })
 })
 
+
+/** GET /api/mapping/cycles-from-modules?program=prog-dba
+ *  Brücke zur Modules-Ansicht: baut LearningCycle-Objekte aus den
+ *  canonical lc_contents-Zeilen der modules-Tabelle (Programm-Filter via
+ *  modules.program_id / studyProgramIds) — genau die Inhalte, wie sie in der
+ *  Modules-Ansicht gepflegt werden (Bloom-Lernziele, Methoden, 4-Phasen-Inhalte).
+ *  Fallback: curriculum_modules/learning_cycles (Excel-Quellzeilen),
+ *  falls ein Modul (noch) keine lc_contents hat.
+ */
+mappingRouter.get('/cycles-from-modules', async (req, res) => {
+  try {
+    const program = String(req.query.program ?? '')
+    const [modules, contents, curriculumModules] = await Promise.all([
+      getAllEntities('modules'),
+      getAllEntities('lc_contents'),
+      getAllEntities('curriculum_modules').catch(() => [] as any[]),
+    ])
+    const filtered = modules.filter((m: any) => {
+      if (!program) return true
+      return m.program_id === program
+        || m.program === program
+        || (m.studyProgramIds ?? []).includes(program)
+        || (m.programIds ?? []).includes(program)
+    })
+
+    const contentsByModule = new Map<string, any[]>()
+    for (const c of contents) {
+      const list = contentsByModule.get(c.moduleId) ?? []
+      list.push(c)
+      contentsByModule.set(c.moduleId, list)
+    }
+    const curByModule = new Map<string, any>()
+    for (const cm of curriculumModules) curByModule.set(cm.id, cm)
+
+    const cycles: LearningCycle[] = []
+    for (const m of filtered) {
+      const moduleId = String(m.id ?? m._id)
+      const items = (contentsByModule.get(moduleId) ?? []).sort((a, b) => a.lcNumber - b.lcNumber)
+      for (const item of items) {
+        const row = curByModule.get(moduleId)
+        const lcOrig = (row?.learningCycles ?? [])[item.lcNumber - 1]
+        cycles.push({
+          id: item.id,
+          moduleId,
+          structuralElement: item.lcTitle ?? ('Learning Cycle ' + item.lcNumber),
+          learningGoals: String(item.learningGoals ?? lcOrig?.learningGoals ?? ''),
+          mainContent: String(item.content ?? lcOrig?.mainContent ?? ''),
+          didactics: (item.methods ?? []).map((x: string) => '- ' + x).join(String.fromCharCode(10))
+          || String(lcOrig?.didactics ?? ''),
+
+          assignmentDescription: item.assignment ?? lcOrig?.assignmentDescription,
+          assignmentType: lcOrig?.assignmentType,
+          gradingPercentage: lcOrig?.gradingPercentage,
+          level: lcOrig?.level ?? undefined,
+          semester: lcOrig?.semester ?? m.semester ?? undefined,
+          sourceFile: lcOrig?.sourceFile ?? 'modules-view-lc-content',
+          sourceRow: item.lcNumber,
+          version: item.version ?? 'seed-bloom-v2',
+        })
+      }
+    }
+    res.json({ program, moduleCount: filtered.length, cycles })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Laden fehlgeschlagen' })
+  }
+})
+
 /** POST /api/mapping/cycles — LCs speichern (folge-Import via Excel-Import modul). */
 mappingRouter.post('/cycles', async (req, res) => {
   try {

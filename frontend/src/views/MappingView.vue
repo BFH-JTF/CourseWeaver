@@ -401,9 +401,9 @@ function decide(decision: 'confirmed' | 'rejected') {
 
 async function exportMappingJson(): Promise<void> {
   try {
-    const cyclesResp = await fetch('/api/curriculum_modules')
-    const modulesJson = await cyclesResp.json()
-    const cycles = (modulesJson as any[]).flatMap((m: any) => (m.learningCycles ?? []).map((lc: any) => ({ ...lc, moduleId: m.id, semester: m.semester })))
+    const cyclesResp = await fetch('/api/mapping/cycles-from-modules?program=' + encodeURIComponent('prog-dba'))
+    const data = await cyclesResp.json()
+    const cycles = (data as any).cycles
     const res = await fetch('/api/mapping/analyze', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cycles, program: 'prog-dba' }),
