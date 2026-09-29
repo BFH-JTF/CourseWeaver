@@ -103,7 +103,7 @@ function topicOf(moduleName: string): { t: string; s: string } {
     'Strategic Controlling': { t: 'strategischer Controlling', s: 'KPI-Systemen und Forecasting-Mechanismen' },
     'Negotiation & Stakeholder': { t: 'Verhandlungs- und Stakeholder-Management', s: 'Interessen- und Machtverhältnis-Analysen' },
   }
-  return map[n] ?? { t: `das Modul ${n}`, s: `den Inhalten von ${n}` }
+  return map[n] ?? { t: 'das Themengebiet «' + n + '»', s: 'den Kernthemen von «' + n + '»' }
 }
 
 function contentBlock(lc: number, topic: { t: string; s: string }, keyConcepts: string[]): string {
@@ -146,12 +146,55 @@ function contentBlock(lc: number, topic: { t: string; s: string }, keyConcepts: 
 
 async function main() {
   console.log(`[seed-lc-bloom] API: ${API}`)
-  const [contents, modules, curriculumModules] = await Promise.all([
+  const [contents, modules, curriculumModules, competencyRows] = await Promise.all([
     get<any[]>('lc_contents'),
     get<any[]>('modules'),
     get<any[]>('curriculum_modules'),
+    get<any[]>('competencies'),
   ])
-  console.log(`lc_contents zu befüllen: ${contents.length}`)
+  const competencyPool = (competencyRows ?? []).map(c => String(c.id ?? c._id))
+  const methodToolkit = [
+    'Lecture (Input)', 'Case Study', 'Gruppenarbeit', 'Flip Teaching',
+    'Diskussion / Debrief', 'Workshop', 'Selbststudium (Podcast/Lesetext)',
+    'Selbsttest & Feedback', 'Peer Review', 'Online-Übung / Simulation',
+    'Exkursion', 'Präsentation',
+  ]
+  console.log(`lc_contents vorhanden: ${contents.length}`)
+
+  // ── A) Zeilen erzeugen für ALLE Module, die noch keine LC-Inhalte haben ──
+  const existingKey = new Set(contents.map(r => `${r.moduleId}#${r.lcNumber}`))
+  void existingKey
+  let createdRows = 0
+  for (const mod of modules) {
+    const moduleId = String(mod.id ?? mod._id)
+    const name = String(mod.name ?? '')
+    const topic = topicOf(name)
+    const curMod = curriculumModules.find(m => (m.id ?? m._id) === moduleId)
+    const cycles = curMod?.learningCycles ?? []
+    // competencia pool aus der Kompetenzen-Tabelle (fallback rotierend)
+    for (let n = 1; n <= 6; n++) {
+      const key = moduleId + '#' + n
+      if (contents.some(r => r.moduleId === moduleId && Number(r.lcNumber) === n)) continue
+      const lcOrig = cycles[n - 1] ?? {}
+      const stage = BLOOM[((n - 1) % 6) + 1]
+      const goalsText = stage.goals(topic.t, topic.s).map(g => '- ' + g).join(String.fromCharCode(10))
+      const row = {
+        id: 'content-' + moduleId + '-lc' + n,
+        moduleId,
+        lcNumber: n,
+        lcTitle: lcOrig?.structuralElement ?? ('Learning Cycle ' + n),
+        learningGoals: goalsText,
+        content: contentBlock(n, topic, bulletsFrom(String(lcOrig?.mainContent ?? ''), 2)),
+        assignment: String(lcOrig?.assignmentDescription ?? ''),
+        competencies: [0, 1, 2].map(k => competencyPool[k] ?? competencyPool[(n + k) % Math.max(1, competencyPool.length)]).filter(Boolean),
+        methods: methodToolkit.slice(0, 2 + (n % 2)),
+        version: 'seed-bloom-v2',
+      }
+      contents.push(row)
+      createdRows++
+    }
+  }
+  console.log('Erzeugte (fehlende) LC-Zeilen: ' + createdRows)
 
   let updated = 0
   for (const row of contents) {
