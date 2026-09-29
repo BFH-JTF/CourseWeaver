@@ -194,6 +194,7 @@ const candidateInfo = ref<string | null>(null)
 const errorInfo = ref<string | null>(null)
 
 const modules = ref<CurriculumModuleEntry[]>([])
+const moduleDetails = ref<Record<string, any>>({})
 const selectedProgramId = ref<string | null>(null)
 
 /* Aktive Pipeline-Stufe (Stepper-Navigation) */
@@ -470,6 +471,45 @@ function toggleCycle(id: string): void {
 async function loadModules(): Promise<void> {
   loadError.value = null
   try {
+    // Primärquelle: dieselben Datensätze wie in der Modules-Ansicht
+    // (canonical lc_contents — velle Bloom-Lernziele, 4-Phasen-Inhalte, Methoden).
+    const program = selectedProgramId.value ?? ''
+    const bridge = await fetch('/api/mapping/cycles-from-modules' + (program ? '?program=' + encodeURIComponent(program) : ''))
+    if (bridge.ok) {
+      const data = await bridge.json()
+      const bridgeCycles = (data.cycles ?? []) as any[]
+      if (bridgeCycles.length) {
+        const byModule = new Map<string, CurriculumModuleEntry>()
+        // Modulprofile (Name, credits, hours, instructors) anreichern:
+        await Promise.all(bridgeCycles.map(async (c: any) => {
+          const existingMod = byModule.get(c.moduleId)
+          if (existingMod) {
+            existingMod.learningCycles.push(c as LearningCycleEntry)
+            return
+          }
+          // Modulprofil laden
+          let mod: any = null
+          const res = await fetch('/api/modules/' + encodeURIComponent(c.moduleId))
+          if (res.ok) mod = await res.json()
+          const entry: CurriculumModuleEntry = {
+            id: c.moduleId,
+            name: mod?.name ?? c.moduleId,
+            studyProgramId: mod?.program_id ?? mod?.program ?? 'prog-unknown',
+            semester: mod?.semester ?? 0,
+            credits: mod?.creditPoints ?? mod?.credits,
+            learningCycles: [c as LearningCycleEntry],
+          }
+          moduleDetails.value[c.moduleId] = mod
+          byModule.set(c.moduleId, entry)
+        }))
+        modules.value = [...byModule.values()]
+        if (!selectedProgramId.value && modules.value.length) {
+          selectedProgramId.value = modules.value[0]!.studyProgramId
+        }
+        return
+      }
+    }
+    // Fallback 1: Excel-Quelle (curriculum_modules)
     const stored: Record<string, any>[] = await fetch('/api/curriculum_modules').then(r => (r.ok ? r.json() : []))
     if (stored.length) {
       modules.value = (stored as any[]).map(m => ({
@@ -481,6 +521,7 @@ async function loadModules(): Promise<void> {
         learningCycles: (m.learningCycles ?? []) as LearningCycleEntry[],
       }) as CurriculumModuleEntry)
     } else {
+      // Fallback 2: Legacy flat learning_cycles
       const legacy = (await fetch('/api/learning_cycles').then(r => (r.ok ? r.json() : []))) as any[]
       const byModule = new Map<string, CurriculumModuleEntry>()
       for (const lc of legacy) {
