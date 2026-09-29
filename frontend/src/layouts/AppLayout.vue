@@ -198,9 +198,9 @@ const navItems = computed(() => {
   const items = [
     { title: t('nav.dashboard'), icon: 'mdi-view-dashboard', to: '/' },
     { title: t('nav.modules'), icon: 'mdi-book-open-page-variant', to: '/modules' },
-    { title: t('nav.workload'), icon: 'mdi-clock-outline', to: '/workload' },
     { title: t('nav.curriculum'), icon: 'mdi-book-education', to: '/curriculum' },
     { title: t('nav.taxonomy'), icon: 'mdi-sitemap', to: '/taxonomy' },
+    { title: t('nav.workload'), icon: 'mdi-clock-outline', to: '/workload' },
     { title: t('nav.todos'), icon: 'mdi-clipboard-check-outline', to: '/todos' },
     // "Mapping" bewusst nicht als eigener Nav-Punkt: die Mapping/Review-Matrix
     // (/mapping, MappingView) ist Schritt 5 der Pipeline in /curriculum und via
