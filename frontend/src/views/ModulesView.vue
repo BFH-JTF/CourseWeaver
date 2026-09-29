@@ -63,64 +63,7 @@
     </v-row>
 
 
-    <!-- §Dashboard: Metriken + Grafiken je Ansicht -->
-    <v-row dense class="mb-2">
-      <v-col cols="6" md="3">
-        <v-card variant="flat" class="pa-3 card-lift h-100">
-          <div class="d-flex align-center ga-2 mb-1">
-            <v-avatar size="34" color="primary" icon="mdi-book-open-page-variant" />
-            <span class="text-body-2 text-medium-emphasis">Module gesamt</span>
-          </div>
-          <div class="text-h4 font-weight-bold">{{ metrics.moduleCount }}</div>
-        </v-card>
-      </v-col>
-      <v-col cols="6" md="3" :lg="2">
-        <v-card variant="flat" class="pa-3 card-lift h-100">
-          <div class="d-flex align-center ga-2 mb-1">
-            <v-avatar size="30" color="secondary" icon="mdi-clock-outline" />
-            <span class="text-body-2 text-medium-emphasis">Kontaktstunden</span>
-          </div>
-          <div class="text-h4 font-weight-bold">{{ metrics.totalContactHours }}</div>
-        </v-card>
-      </v-col>
-      <v-col cols="6" md="3" :lg="2">
-        <v-card variant="flat" class="pa-3 card-lift h-100">
-          <div class="d-flex align-center ga-2 mb-1">
-            <v-avatar size="30" color="accent" icon="mdi-book-account" />
-            <span class="text-body-2 text-medium-emphasis">Selbststudium</span>
-          </div>
-          <div class="text-h4 font-weight-bold">{{ metrics.totalSelfStudyHours }}</div>
-        </v-card>
-      </v-col>
-      <v-col cols="6" md="3" :lg="2">
-        <v-card variant="flat" class="pa-3 card-lift h-100">
-          <div class="d-flex align-center ga-2 mb-1">
-            <v-avatar size="30" color="success" icon="mdi-account-group" />
-            <span class="text-body-2 text-medium-emphasis">Kohorten</span>
-          </div>
-          <div class="text-h4 font-weight-bold">{{ metrics.classCount }}</div>
-        </v-card>
-      </v-col>
-      <v-col cols="12" md="4">
-        <v-card variant="flat" class="pa-3 card-lift h-100">
-          <div class="d-flex align-center ga-2 mb-2">
-            <v-avatar size="30" color="info" icon="mdi-chart-bar" />
-            <span class="text-body-2 text-medium-emphasis">Kontaktstunden pro Studienprogramm</span>
-          </div>
-          <div v-for="g in hoursByProgram" :key="g.programId" class="mb-2">
-            <div class="d-flex justify-space-between text-caption mb-1">
-              <span>{{ g.programId || "— (ohne Zuordnung)" }}</span>
-              <span class="text-medium-emphasis">{{ g.contactHours }} h · {{ g.moduleCount }} Modul(en)</span>
-            </div>
-            <v-progress-linear :model-value="g.percent" color="primary" rounded height="6" />
-          </div>
-          <div v-if="hoursByProgram.length === 0" class="text-caption text-medium-emphasis">Keine Zuordnungen.</div>
-        </v-card>
-      </v-col>
-    </v-row>
-
     <div class="d-flex align-center justify-space-between mb-2">
-      <h2 class="text-h6">Kohorten (Classes)</h2>
       <div class="d-flex ga-2">
         <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="openNewModule">
           New Module
