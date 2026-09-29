@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-app-bar color="primary" prominent>
+    <v-app-bar color="primary" prominent elevation="2" :elevation-h="6">
       <v-app-bar-nav-icon @click="drawer = !drawer" />
       <v-app-bar-title>
         <img
@@ -25,7 +25,7 @@
     </v-app-bar>
 
     <v-navigation-drawer v-model="drawer" temporary>
-      <div class="brand" role="button" tabindex="0" @click="goHome" @keydown.enter.prevent="goHome">
+      <div class="brand d-flex align-center ga-3 px-4 py-2" role="button" tabindex="0" @click="goHome" @keydown.enter.prevent="goHome">
         <img src="/Logo.png" class="brand-logo" alt="CourseWeaver" />
       </div>
       <v-list nav>
@@ -60,7 +60,7 @@
       </template>
     </v-navigation-drawer>
 
-    <v-main>
+    <v-main class="app-bg">
       <router-view />
     </v-main>
   </v-app>

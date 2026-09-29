@@ -1,13 +1,13 @@
 <template>
   <v-container>
-    <h1>{{ t('dashboard.title') }}</h1>
-    <p class="text-body-1 mt-2 mb-4">
-      {{ t('dashboard.subtitle') }}
-    </p>
+    <div class="view-hero">
+      <h1 class="text-h4 font-weight-bold">{{ t('dashboard.title') }}</h1>
+      <div class="text-body-2 opacity-90">{{ t('dashboard.subtitle') }}</div>
+    </div>
 
     <v-row>
       <v-col cols="12" md="4">
-        <v-card variant="outlined" class="pa-3 mb-4" to="/modules" hover>
+        <v-card variant="flat" class="pa-3 mb-4 card-lift" to="/modules" hover>
           <div class="text-subtitle-1 font-weight-bold mb-2">{{ t('dashboard.programs') }}</div>
           <div v-for="p in programStats" :key="p.id" class="d-flex justify-space-between mb-1">
             <span class="text-body-2">{{ p.title }}</span>
@@ -17,7 +17,7 @@
           </div>
         </v-card>
 
-        <v-card variant="outlined" class="pa-3 mb-4" to="/schedule" hover>
+        <v-card variant="flat" class="pa-3 mb-4 card-lift" to="/schedule" hover>
           <div class="text-subtitle-1 font-weight-bold mb-2">{{ t('schedule.conflicts') }}</div>
           <div class="text-h4">{{ slotConflictsCount }}</div>
           <div class="text-caption text-medium-emphasis">
@@ -27,7 +27,7 @@
           </div>
         </v-card>
 
-        <v-card variant="outlined" class="pa-3" to="/todos" hover>
+        <v-card variant="flat" class="pa-3 card-lift" to="/todos" hover>
           <div class="text-subtitle-1 font-weight-bold mb-2">{{ t('dashboard.openTodos') }}</div>
           <div class="text-h4">{{ openTodoCount }}</div>
           <div class="text-caption text-medium-emphasis">
@@ -37,7 +37,7 @@
       </v-col>
 
       <v-col cols="12" md="8">
-        <v-card variant="outlined" class="pa-3 mb-4" to="/schedule" hover>
+        <v-card variant="flat" class="pa-3 mb-4 card-lift" to="/schedule" hover>
           <div class="text-subtitle-1 font-weight-bold mb-2">{{ t('dashboard.nextBlocks') }}</div>
           <div v-for="up in upcomingBlocks" :key="up._id" class="d-flex justify-space-between py-1">
             <span class="text-body-2">{{ up.title }}</span>
@@ -48,7 +48,7 @@
           </div>
         </v-card>
 
-        <v-card variant="outlined" class="pa-3" to="/todos" hover>
+        <v-card variant="flat" class="pa-3 card-lift" to="/todos" hover>
           <div class="text-subtitle-1 font-weight-bold mb-2">{{ t('dashboard.upcomingComms') }}</div>
           <div v-for="c in upcomingComm" :key="c._id" class="d-flex justify-space-between mb-1">
             <span class="text-body-2">{{ c.subject }}</span>
