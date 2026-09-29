@@ -33,7 +33,7 @@ const emit = defineEmits<{
 }>()
 
 const steps: Array<{ key: StepKey; label: string; icon: string; hint?: string }> = [
-  { key: 'import', label: 'Import', icon: 'mdi-tray-arrow-down' },
+  { key: 'import', label: 'Module (Import)', icon: 'mdi-view-module' },
   {
     key: 'build',
     label: 'Kandidaten bauen',

@@ -255,6 +255,11 @@ const stepperStates = computed<Record<StepKey, StepState>>(() => {
 
 function onStepClick(key: StepKey): void {
   errorInfo.value = null
+  if (key === 'import') {
+    // Import lebt in der Modules-Ansicht (Anfrage 29.09.2026): dorthin statt eigener Import-Sektion
+    void router.push('/modules')
+    return
+  }
   if (key === 'explain') {
     // Review-Ansicht = bestehende Modul-Matrix (/mapping)
     void router.push('/mapping')
