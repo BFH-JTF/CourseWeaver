@@ -1,17 +1,22 @@
 <template>
   <v-container fluid>
-    <div class="d-flex align-center ga-3 mb-1">
-      <h1 class="text-h4 font-weight-bold">Todos</h1>
-      <span class="text-body-2 text-medium-emphasis">{{ openCount }} offen</span>
-      <v-btn-toggle v-model="viewMode" mandatory density="compact" variant="outlined" class="ms-auto">
-        <v-btn value="board" prepend-icon="mdi-view-column">Board</v-btn>
-        <v-btn value="list" prepend-icon="mdi-format-list-bulleted">Liste</v-btn>
-      </v-btn-toggle>
+    <div class="view-hero">
+      <div class="d-flex align-center flex-wrap ga-3">
+        <h1 class="text-h4 font-weight-bold">Todos</h1>
+        <v-chip size="small" color="rgba(255,255,255,0.22)" text-color="white" variant="flat">
+          {{ openCount }} offen
+        </v-chip>
+        <v-btn-toggle v-model="viewMode" mandatory density="compact" variant="flat" class="ms-auto"
+          color="rgba(255,255,255,0.22)" text-color="white">
+          <v-btn value="board" prepend-icon="mdi-view-column">Board</v-btn>
+          <v-btn value="list" prepend-icon="mdi-format-list-bulleted">Liste</v-btn>
+        </v-btn-toggle>
+      </div>
+      <div class="text-body-2 opacity-90">
+        Kanban je Programm: Backlog, „bald fällig“ (= Enddatum in den nächsten 2 Wochen),
+        in Bearbeitung, erledigt. Karten zwischen Spalten ziehen ändert den Status (persistiert).
+      </div>
     </div>
-    <p class="text-body-2 text-medium-emphasis mb-4">
-      Kanban je Programm: Backlog, „bald fällig“ (= Enddatum in den nächsten 2 Wochen),
-      in Bearbeitung, erledigt. Karten zwischen Spalten ziehen ändert den Status (persistiert).
-    </p>
 
     <v-row dense class="mb-4">
       <v-col cols="12" md="4">
@@ -35,8 +40,8 @@
       <v-row dense>
         <v-col v-for="col in columns" :key="col.key" cols="12" md="3">
           <v-card
-            variant="outlined"
-            class="board-col pa-2"
+            variant="flat"
+            class="board-col pa-2 card-lift"
             :class="{ 'drop-target': dragOverCol === col.key }"
             @dragover.prevent
             @dragenter.prevent="dragOverCol = col.key"
@@ -50,7 +55,7 @@
 
             <v-sheet
               v-for="t in cardsFor(col.key)" :key="t._id"
-              class="pa-2 mb-2 border rounded todo-card"
+              class="pa-2 mb-2 rounded-lg todo-card card-lift"
               :class="{ 'overdue': isOverdue(t) }"
               draggable="true"
               @dragstart="onDragStartTodo(t, $event)"
