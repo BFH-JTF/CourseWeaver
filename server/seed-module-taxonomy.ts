@@ -62,27 +62,55 @@ async function put(table: string, row: any): Promise<void> {
 async function main() {
   console.log(`[seed-examples] API: ${API}`)
 
-  // ── 1) Modules: Legacy → normiertes Schema anreichern ──────
-  const modules = await get<any[]>('modules') ?? []
-  let mPatched = 0
-  modules.forEach((m, i) => {
-    const enrich = (!m.code || !m.name) as boolean
-    if (!enrich) return
-    const title = String(m.title ?? m.name ?? '')
-    const credits = Number(m.credits ?? m.creditPoints ?? 3)
-    m.code = codeFor(m, i)
-    m.name = title || m.code
-    m.creditPoints = credits
-    m.contactHours = Number(m.contactHours ?? (credits === 6 ? 42 : 21)) || 42
-    m.selfStudyHours = Number(m.selfStudyHours ?? Math.max(0, 30 * credits - (m.contactHours as number))) || 138
-    m.description = m.description ?? `Modul '${title}' im Rahmen von ${String(m.program_id ?? 'Programm')}${m.semester ? ', Semester ' + m.semester : ''}.`
-    m.url = m.url ?? `https://bfh.ch/curriculum/${slug(title) || i}`
-    void put('modules', m)
-    mPatched++
-  })
-  await Promise.all([]) // flush (ESM sequential writes are PUT'ed above)
-  console.log(`[seed] modules: ${modules.length} (angereichert: ${mPatched})`)
+  // ── 1) Modules: Workload-Regeln (29.09.2026) ──────
+  //   30 h je ECTS (6 ECTS = 180 h, 3 ECTS = 90 h);
+  //   Kontaktstunden = 6 x 4 h (6 ECTS) bzw. 3 x 4 h (3 ECTS);
+  //   Selbststudium = Rest; die meisten Kurse laufen im Co-Teaching (> 85 %).
+  const contactHoursForEcts = (ects: number) => (ects === 6 ? 24 : 12)
+  const selfStudyForEcts = (ects: number) => 30 * ects - contactHoursForEcts(ects)
 
+  const instructors = (await get<any[]>("instructors")) ?? []
+  const instructorIds = instructors.map(i => String(i.id ?? i._id))
+
+  const modules = (await get<any[]>("modules")) ?? []
+  let mPatched = 0
+  for (const [i, m] of modules.entries()) {
+    const title = String(m.title ?? m.name ?? "")
+    const credits = Number(m.credits ?? m.creditPoints ?? 3)
+    const ects = credits === 6 ? 6 : 3
+    const contactHours = contactHoursForEcts(ects)
+    const selfStudyHours = selfStudyForEcts(ects)
+    const currentIds: string[] = ((m.instructor_ids ?? []) as unknown[]).map(String)
+    const unique = Array.from(new Set(currentIds.filter(Boolean)))
+    // Co-Teaching fuer ~85 % der Module (jede 7. bleibt solo, damit der
+    // Unterverteilung alleine-Kurse noch vorkommen)
+    const coTeach = i % 7 !== 3
+    if (unique.length === 0 && instructorIds.length >= 2) {
+      unique.push(instructorIds[i % instructorIds.length], instructorIds[(i + 5) % instructorIds.length])
+    } else if (unique.length === 1 && coTeach && instructorIds.length > 1) {
+      const pool = instructorIds.filter(x => !unique.includes(x))
+      if (pool.length) unique.push(pool[(i * 7 + 3) % pool.length])
+    }
+
+    const needsUpdate =
+      m.contactHours !== contactHours ||
+      m.selfStudyHours !== selfStudyHours ||
+      !m.code || !m.name ||
+      JSON.stringify(currentIds) !== JSON.stringify(unique)
+    if (!needsUpdate) continue
+
+    m.code = m.code || codeFor(m, i)
+    m.name = m.name || title || m.code
+    m.creditPoints = m.creditPoints ?? credits
+    m.contactHours = contactHours
+    m.selfStudyHours = selfStudyHours
+    m.instructor_ids = unique
+    m.description = m.description ?? ("Modul '" + title + "' im Rahmen von " + String(m.program_id ?? "Programm") + (m.semester ? ", Semester " + m.semester : "") + ".")
+    m.url = m.url ?? `https://bfh.ch/curriculum/${slug(title) || i}`
+    await put("modules", m)
+    mPatched++
+  }
+  console.log(`[seed] modules: ${modules.length} (angereichert: ${mPatched}, Co-Teaching ~85 %)`)
   // ── 2) Competencies ─────────────────────────────────────────
   const competencies = await get<any[]>('competencies') ?? []
   let cChanged = 0
