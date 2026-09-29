@@ -1,6 +1,5 @@
 <template>
-  <div class="curriculum-page">
-  <v-container fluid>
+  <v-container fluid class="app-bg">
     <!-- Einheitlicher Kopf + Pipeline-Leiste (identisch zur Curriculum-Import-Ansicht) -->
     <div class="view-hero">
       <div class="d-flex align-center justify-space-between flex-wrap ga-3">
@@ -11,14 +10,7 @@
             über Lernziele (I–R–M-Logik) zu Lernaktivitäten und Leistungsnachweisen.
           </div>
         </div>
-      <v-btn
-        size="small"
-        variant="outlined"
-        color="accent"
-        prepend-icon="mdi-refresh"
-        :loading="loading"
-        @click="load"
-      >
+      <v-btn size="small" variant="flat" color="rgba(255,255,255,0.22)" text-color="white" prepend-icon="mdi-refresh" :loading="loading" @click="load">
         Neu laden
       </v-btn>
       </div>
@@ -507,17 +499,6 @@ watch(selectedProgramId, () => {
   font-weight: 600;
 }
 /* Einheitlicher Kopf wie CurriculumMappingPage (Fraunces-Serif-Titel + Creme-Band) */
-.curriculum-page {
-  background: var(--cw-bg, #f6f4ee);
-  min-height: 100vh;
-  padding-top: 12px;
-}
-.page-title {
-  font-family: 'Fraunces', serif;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--cw-text, #1e211d);
-}
 </style>
 <style scoped>
 .pool-card { cursor: grab; }

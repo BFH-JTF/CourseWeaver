@@ -1,19 +1,20 @@
 <template>
-  <div class="curriculum-page">
-    <v-container fluid>
+  <v-container fluid class="app-bg">
       <!-- Screenshot 1: Titelzeile + Aktion "Daten importieren" (kein separater Mapping-Button, Kap. Pipeline-Navigation) -->
-      <div class="d-flex align-center justify-space-between mb-1 flex-wrap">
-        <div>
-          <h1 class="page-title mb-1">Curriculum Mapping</h1>
-          <div class="text-body-2 text-medium-emphasis">
-            {{ visibleModules.length }} Module · {{ totalSemesters }} Semester · {{ totalCycles }} Learning Cycles importiert
+      <div class="view-hero">
+        <div class="d-flex align-center justify-space-between flex-wrap ga-3">
+          <div>
+            <h1 class="text-h4 font-weight-bold">Curriculum Mapping</h1>
+            <div class="text-body-2 opacity-90">
+              {{ visibleModules.length }} Module · {{ totalSemesters }} Semester · {{ totalCycles }} Learning Cycles importiert
+            </div>
           </div>
-        </div>
-        <div class="d-flex ga-2">
-          <!-- Import lebt in der Modules-Ansicht (Anfrage 29.09.2026): hier nur Link zur Quelle -->
-          <v-btn variant="text" color="primary" prepend-icon="mdi-arrow-left-right" to="/modules">
-            Modules (Import &amp; Bearbeitung)
-          </v-btn>
+          <div class="d-flex ga-2">
+            <!-- Import lebt in der Modules-Ansicht (Anfrage 29.09.2026): hier nur Link zur Quelle -->
+            <v-btn variant="flat" color="rgba(255,255,255,0.22)" text-color="white" prepend-icon="mdi-arrow-left-right" to="/modules">
+              Modules (Import &amp; Bearbeitung)
+            </v-btn>
+          </div>
         </div>
       </div>
 
@@ -75,7 +76,7 @@
            Screenshot 1: günstiger Filterschritt (Embeddings, keine LLM-Calls) -->
       <template v-else-if="activeStep === 'build'">
         <v-card variant="outlined" class="pa-4" style="border-color: var(--cw-border, #e3dfd3); background: transparent;">
-          <div class="text-subtitle-1 font-weight-bold mb-1" style="font-family: 'Fraunces', serif;">Kandidaten bauen</div>
+          <div class="text-subtitle-1 font-weight-bold mb-1">Kandidaten bauen</div>
           <div class="text-body-2 text-medium-emphasis mb-4">
             Filtert günstig (nur Embeddings, keine LLM-Aufrufe) auf eine kleine Menge plausibler Paare:
             Lernziel + Hauptinhalt je Learning Cycle embedden, paarweise Cosinus-Ähnlichkeit berechnen,
@@ -124,7 +125,7 @@
            Der eigentliche Start der teuren Bewertung — hier statt Button oben rechts -->
       <template v-else-if="activeStep === 'assess'">
         <v-card variant="outlined" class="pa-4" style="border-color: var(--cw-border, #e3dfd3); background: transparent;">
-          <div class="text-subtitle-1 font-weight-bold mb-1" style="font-family: 'Fraunces', serif;">LLM-Bewertung</div>
+          <div class="text-subtitle-1 font-weight-bold mb-1">LLM-Bewertung</div>
           <div class="text-body-2 text-medium-emphasis mb-4">
             Quickly: Parallel: max. 5 gleichzeitige Calls mit Retry — die Bewertung kann einige Minuten laufen.
           </div>
@@ -530,17 +531,6 @@ const semesterSections = computed(() => {
 </script>
 
 <style scoped>
-.curriculum-page {
-  background: var(--cw-bg, #f6f4ee);
-  min-height: 100vh;
-  padding-top: 12px;
-}
-.page-title {
-  font-family: 'Fraunces', serif;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--cw-text, #1e211d);
-}
 .program-title {
   font-family: 'IBM Plex Sans', sans-serif;
   font-weight: 600;
