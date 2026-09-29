@@ -169,7 +169,6 @@
       <!-- Daten-Import per Dialog (Mehr-Dateien, Kap Spec 3) -->
       <CsvImportDialog v-model="importOpen" />
     </v-container>
-  </div>
 </template>
 
 <script setup lang="ts">

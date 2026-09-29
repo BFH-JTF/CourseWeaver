@@ -31,10 +31,28 @@
           </v-col>
         </v-row>
 
+        <div class="d-flex align-center ga-2 mb-2">
+          <v-select
+            v-model="sortField"
+            :items="[
+              { title: 'Name', value: 'name' },
+              { title: 'Category', value: 'category' },
+              { title: 'Level', value: 'level' },
+            ]"
+            label="Sortieren nach"
+            style="max-width: 220px"
+            variant="outlined" density="compact" hide-details
+          />
+          <v-btn-toggle v-model="sortOrder" mandatory variant="outlined" density="compact" color="primary">
+            <v-btn value="asc" icon="mdi-arrow-up" />
+            <v-btn value="desc" icon="mdi-arrow-down" />
+          </v-btn-toggle>
+          <span class="text-caption text-medium-emphasis">{{ sortOrder === 'asc' ? 'aufsteigend (A→Z)' : 'absteigend (Z→A)' }}</span>
+        </div>
         <v-data-table
           :headers="competencyHeaders"
           :items="filteredCompetencies"
-          :sort-by="competencySortBy"
+          :sort-by="[{ key: sortField, order: sortOrder }]"
           @update:sort-by="competencySortBy = $event"
           hover
           items-per-page="15"
@@ -241,6 +259,8 @@ const competencySearch = ref('')
 const competencyDialogOpen = ref(false)
 const editCompetency = ref<Competency | undefined>(undefined)
 const competencySortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+const sortField = ref<'name' | 'category' | 'level'>('name')
+const sortOrder = ref<'asc' | 'desc'>('asc')
 
 // Proofs of Competency tab state
 const proofSearch = ref('')
