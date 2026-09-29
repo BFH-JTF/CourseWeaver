@@ -1,7 +1,7 @@
 <template>
   <v-container fluid>
     <div class="d-flex align-center ga-3 mb-1">
-      <h1 class="text-h5">Todos</h1>
+      <h1 class="text-h4 font-weight-bold">Todos</h1>
       <span class="text-body-2 text-medium-emphasis">{{ openCount }} offen</span>
       <v-btn-toggle v-model="viewMode" mandatory density="compact" variant="outlined" class="ms-auto">
         <v-btn value="board" prepend-icon="mdi-view-column">Board</v-btn>

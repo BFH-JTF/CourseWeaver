@@ -1,9 +1,10 @@
 <template>
   <v-container>
-    <h1 class="mb-1">Taxonomy</h1>
-    <p class="text-body-2 text-medium-emphasis mb-4">
-      Manage competency frameworks, learning objectives, and proofs of competency used across the curriculum.
-    </p>
+    
+    <div class="view-hero">
+      <h1 class="text-h4 font-weight-bold">Taxonomy</h1>
+      <div class="text-body-2 opacity-90">Manage competency frameworks, learning objectives, and proofs of competency used across the curriculum.</div>
+    </div>
 
     <v-tabs v-model="activeTab">
       <v-tab value="competencies">Competencies</v-tab>

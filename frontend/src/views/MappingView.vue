@@ -2,14 +2,15 @@
   <div class="curriculum-page">
   <v-container fluid>
     <!-- Einheitlicher Kopf + Pipeline-Leiste (identisch zur Curriculum-Import-Ansicht) -->
-    <div class="d-flex align-center justify-space-between mb-1 flex-wrap">
-      <div>
-        <h1 class="page-title mb-1">Curriculum Mapping</h1>
-        <div class="text-body-2 text-medium-emphasis">
-          Review — Constructive Alignment über alle Master-Module: Von den strategischen Themenfeldern
-          über Lernziele (I–R–M-Logik) zu Lernaktivitäten und Leistungsnachweisen.
+    <div class="view-hero">
+      <div class="d-flex align-center justify-space-between flex-wrap ga-3">
+        <div>
+          <h1 class="text-h4 font-weight-bold">Curriculum Mapping</h1>
+          <div class="text-body-2 opacity-90">
+            Review — Constructive Alignment über alle Master-Module: Von den strategischen Themenfeldern
+            über Lernziele (I–R–M-Logik) zu Lernaktivitäten und Leistungsnachweisen.
+          </div>
         </div>
-      </div>
       <v-btn
         size="small"
         variant="outlined"
@@ -20,6 +21,7 @@
       >
         Neu laden
       </v-btn>
+      </div>
     </div>
 
     <!-- Pipeline-Navigation: identisch zu CurriculumMappingPage; Schritte 1-4 navigieren dorthin -->

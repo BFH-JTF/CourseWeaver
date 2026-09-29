@@ -1,19 +1,22 @@
 <template>
   <v-container>
-    <div class="d-flex align-center justify-space-between mb-1">
-      <h1>Modules</h1>
+    <div class="view-hero">
+      <h1 class="text-h4 font-weight-bold">Modules</h1>
+      <div class="text-body-2 opacity-90">Manage modules, their details (credits, hours), and inter-module constraints (prerequisites, corequisites, exclusions).</div>
+    </div>
+
+    <div class="d-flex align-center justify-space-between mb-2">
+      <h2 class="text-h6">Kohorten (Classes)</h2>
       <div class="d-flex ga-2">
-        <v-btn color="primary" prepend-icon="mdi-plus" @click="openNewModule">
+        <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="openNewModule">
           New Module
         </v-btn>
-        <v-btn variant="outlined" prepend-icon="mdi-file-import" @click="csvImportDialogOpen = true">
+        <v-btn variant="outlined" size="small" prepend-icon="mdi-file-import" @click="csvImportDialogOpen = true">
           Import CSV
         </v-btn>
       </div>
     </div>
-    <p class="text-body-1 mt-2 mb-4">
-      Manage modules, their details (credits, hours), and inter-module constraints (prerequisites, corequisites, exclusions).
-    </p>
+
     <v-table>
       <thead>
         <tr>
