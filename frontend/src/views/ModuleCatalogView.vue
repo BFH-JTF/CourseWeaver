@@ -83,55 +83,249 @@
             Für dieses Modul sind keine Excel-Lernzyklen vorhanden — LC-Zeilen werden neu angelegt, wenn gespeichert wird.
           </v-alert>
           <v-table class="lc-table">
+          <v-table class="lc-table lc-two-row">
             <thead>
-              <tr>
-                <th style="width:64px">LC</th>
-                <th style="width:47%">Lernziele (Learning Goals) · Kompetenzen</th>
-                <th>Inhalte · Methoden</th>
-              </tr>
+              <tr><th class="lc-lc" rowspan="2">LC</th><th>Kompetenzen</th><th>Methoden</th></tr>
+              <tr class="lc-subhead"><th>Lernziele (Learning Goals · Bloom)</th><th>Inhalte</th></tr>
             </thead>
             <tbody>
-              <tr v-for="row in lcRows" :key="row.id">
-                <td>
-                  <v-chip size="small" variant="tonal" color="primary">LC{{ row.lcNumber }}</v-chip>
-                </td>
-                <td>
-                  <v-textarea
-                    v-model="row.learningGoals"
-                    variant="outlined" density="compact" rows="3" auto-grow hide-details
-                  />
-                </td>
-                <td>
-                  <v-select
-                    v-model="row.competencies"
-                    :items="competencyOptions"
-                    multiple chips closable-chips
-                    variant="outlined" density="compact" hide-details
-                    placeholder="Kompetenzen wählen"
-                  />
-                </td>
-                <td>
-                  <v-textarea
-                    v-model="row.content"
-                    variant="outlined" density="compact" rows="3" auto-grow hide-details
-                  />
-                </td>
-                <td>
-                  <v-select
-                    v-model="row.methods"
-                    :items="METHODS_TOOLKIT"
-                    multiple chips closable-chips
-                    variant="outlined" density="compact" hide-details
-                  />
-                </td>
-              </tr>
-              <tr v-if="lcRows.length === 0">
-                <td colspan="3" class="text-center text-caption">Keine Lernzyklen für dieses Modul.</td>
-              </tr>
+              <template v-for="row in lcRows" :key="row.id">
+                <!-- Zeile 1 je LC: Kompetenzen + Methoden -->
+                <tr class="lc-pair-a">
+                  <td class="lc-lc" rowspan="2"><v-chip size="small" variant="tonal" color="primary">LC{{ row.lcNumber }}</v-chip></td>
+                  <td class="lc-cell">
+                    <v-select v-model="row.competencies" :items="competencyOptions" multiple chips closable-chips
+                      variant="outlined" density="compact" hide-details placeholder="Kompetenzen wählen" />
+                  </td>
+                  <td class="lc-cell">
+                    <v-select v-model="row.methods" :items="METHODS_TOOLKIT" multiple chips closable-chips
+                      variant="outlined" density="compact" hide-details placeholder="Methoden wählen" />
+                  </td>
+                </tr>
+                <!-- Zeile 2 je LC: Lernziele + Inhalte -->
+                <tr class="lc-pair-b">
+                  <td class="lc-cell">
+                    <v-textarea v-model="row.learningGoals" variant="outlined" density="compact" rows="4" auto-grow hide-details />
+                  </td>
+                  <td class="lc-cell">
+                    <v-textarea v-model="row.content" variant="outlined" density="compact" rows="4" auto-grow hide-details />
+                  </td>
+                </tr>
+              </template>
+
+<style scoped>
+.lc-table { table-layout: fixed; width: 100%; }
+.lc-table td, .lc-table th { vertical-align: top !important; }
+.lc-lc { width: 64px; text-align: center; }
+.lc-cell { width: 47%; }
+.lc-pair-a td { padding-bottom: 2px; }
+.lc-pair-b td { padding-top: 0; }
+.lc-subhead th { font-size: 0.72rem; letter-spacing: .08em; text-transform: uppercase; color: rgba(0,0,0,.45); padding-top: 0; border-bottom: 1px dashed rgba(0,0,0,.12); }
+</style>              <tr v-if="lcRows.length === 0"><td colspan="3" class="text-center text-caption">Keine Lernzyklen für dieses Modul.</td></tr>
             </tbody>
           </v-table>
         </v-card>
         <v-card v-else variant="flat" class="pa-6 text-center card-lift">
+          <v-icon size="42" color="primary" icon="mdi-cursor-default-click-outline" />
+          <div class="text-body-1 mt-2">Wähle links ein Modul, um LC1–LC6 zu bearbeiten.</div>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <v-snackbar v-model="snackbar" color="success" :timeout="3000">{{ snackbarText }}</v-snackbar>
+  </v-container>
+</template>
+
+<script setup lang="ts">
+// Neu: Modulansicht "Modules" (data-model-comparison + Anfrage vom 29.09.2026):
+// Einzeldarstellung der Module je Dozierender inkl. LC1–LC6 mit Dropdowns für
+// wiederkehrende Elemente (Kompetenz-Katalog & Methoden-Toolkit).
+import { ref, computed, onMounted } from 'vue'
+import { usePostgres, EntityTables } from '@/composables/usePostgres'
+import { useCurriculumStore } from '@/stores/curriculum'
+import { useCompetencies } from '@/composables/useCompetencies'
+import type { Module } from '@/types/curriculum'
+import type { ClassEntity } from '@/types/curriculumClass'
+
+const METHODS_TOOLKIT = [
+  'Lecture (Input)', 'Case Study', 'Gruppenarbeit', 'Flip Teaching',
+  'Diskussion / Debrief', 'Workshop', 'Selbststudium (Podcast/Lesetext)',
+  'Selbsttest & Feedback', 'Peer Review', 'Online-Übung / Simulation',
+  'Exkursion', 'Präsentation',
+]
+
+interface LcContentRow {
+  id?: string
+  _id?: string
+  moduleId: string
+  lcNumber: number
+  lcTitle?: string
+  learningGoals: string
+  content: string
+  assignment?: string
+  competencies: string[]
+  methods: string[]
+}
+
+const store = useCurriculumStore()
+void store
+
+const { fetchEntities, updateEntity } = usePostgres()
+const { competencies, fetchCompetencies } = useCompetencies()
+
+const modules = ref<any[]>([])
+const lecturers = ref<any[]>([])
+const classRows = ref<ClassEntity[]>([])
+const curriculumModules = ref<any[]>([])
+const lcContents = ref<LcContentRow[]>([])
+
+const selectedLecturerId = ref<string | null>(null)
+const selectedClassId = ref<string | null>(null)
+const selectedModuleId = ref<string | null>(null)
+
+const savingContent = ref(false)
+const snackbar = ref(false)
+const snackbarText = ref('')
+
+const lecturerOptions = computed(() => lecturers.value.map(l => ({
+  title: l.name ?? l.display_name ?? l.id,
+  value: l.id ?? l._id,
+})))
+
+const competencyOptions = computed(() => competencies.value.map(c => ({
+  title: c.name ?? (c as any).title,
+  value: c.id ?? c._id,
+})))
+
+const classOptions = computed(() => classRows.value.map(c => ({
+  title: c.name ?? c.code ?? c._id,
+  value: c.id ?? c._id,
+})))
+
+function selectModule(id: string) {
+  selectedModuleId.value = id
+  ensureLcRowsForModule()
+}
+
+const selectedModule = computed(() => modules.value.find(m => (m.id ?? m._id) === selectedModuleId.value))
+
+const filteredModuleProfiles = computed(() =>
+  modules.value.filter(m => {
+    const matchesLecturer = !selectedLecturerId.value || (m.instructor_ids ?? []).includes(selectedLecturerId.value)
+    const matchesClass = !selectedClassId.value || (m.classIds ?? []).includes(selectedClassId.value)
+    return matchesLecturer && matchesClass
+  }),
+)
+
+
+const lcRows = computed(() =>
+  lcContents.value.filter(r => r.moduleId === selectedModuleId.value).sort((a, b) => a.lcNumber - b.lcNumber),
+)
+
+function lecturerName(id: string): string {
+  const l = lecturers.value.find(x => (x.id ?? x._id) === id)
+  return l?.name ?? id
+}
+
+function classLabel(id: string): string {
+  const c = classRows.value.find(x => (x.id ?? x._id) === id)
+  return c?.name ?? id
+}
+
+function ensureLcRowsForModule() {
+  if (!selectedModuleId.value) return
+  if (lcRows.value.length > 0) return
+  const cur = (curriculumModules.value ?? []).find(cm => cm.id === selectedModuleId.value)
+  const cycles = (cur?.learningCycles ?? [])
+  const competencyIds = competencies.value.map(c => String(c.id ?? c._id))
+  for (let n = 1; n <= 6; n++) {
+    const lc: any = cycles[n - 1]
+    lcContents.value.push({
+      id: `content-${selectedModuleId.value}-lc${n}`,
+      moduleId: selectedModuleId.value,
+      lcNumber: n,
+      lcTitle: lc?.structuralElement ?? `Learning Cycle ${n}`,
+      learningGoals: String(lc?.learningGoals ?? ''),
+      content: String(lc?.mainContent ?? ''),
+      assignment: String(lc?.assignmentDescription ?? ''),
+      competencies: competencyIds.slice(0, 2),
+      methods: METHODS_TOOLKIT.slice(0, 2),
+    })
+  }
+}
+
+async function saveLcContents() {
+  if (!selectedModuleId.value) return
+  savingContent.value = true
+  try {
+    for (const row of lcRows.value) {
+      const { _id, ...rest } = row as any
+      await updateEntity(EntityTables.LC_CONTENT, String(_id ?? row.id), rest)
+    }
+    snackbarText.value = 'Learning Cycles gespeichert'
+    snackbar.value = true
+  } catch (e: any) {
+    snackbarText.value = e.message || 'Fehler beim Speichern'
+    snackbar.value = true
+  } finally {
+    savingContent.value = false
+  }
+}
+
+
+onMounted(async () => {
+  await Promise.all([
+    store.fetchModules?.() ?? Promise.resolve(),
+    fetchEntities<Module>(EntityTables.MODULE).then(j => (modules.value = j)),
+    fetchEntities<any>(EntityTables.LECTURER).then(j => (lecturers.value = j)),
+    fetchEntities<ClassEntity>(EntityTables.CLASS).then(j => (classRows.value = j)),
+    fetchEntities<any>(EntityTables.CURRICULUM_MODULE).then(j => (curriculumModules.value = j)),
+    fetchEntities<LcContentRow>(EntityTables.LC_CONTENT).then(j => (lcContents.value = j)),
+    fetchCompetencies(),
+  ])
+})
+</script>
+
+<style scoped>
+.lc-table td { vertical-align: top; }
+.lc-table { table-layout: fixed; width: 100%; }
+.lc-row td { vertical-align: top !important; }
+.lc-cell-wide { width: 47%; }
+.lc-cell-lc { width: 64px; text-align: center; }
+.lc-stack { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.lc-cap { margin-bottom: 2px; }
+</style>          <v-table class="lc-table lc-two-row">
+            <thead>
+              <tr><th class="lc-lc" rowspan="2">LC</th><th>Kompetenzen</th><th>Methoden</th></tr>
+              <tr class="lc-subhead"><th>Lernziele (Learning Goals · Bloom)</th><th>Inhalte</th></tr>
+            </thead>
+            <tbody>
+              <template v-for="row in lcRows" :key="row.id">
+                <!-- Zeile 1 je LC: Kompetenzen + Methoden -->
+                <tr class="lc-pair-a">
+                  <td class="lc-lc" rowspan="2"><v-chip size="small" variant="tonal" color="primary">LC{{ row.lcNumber }}</v-chip></td>
+                  <td class="lc-cell">
+                    <v-select v-model="row.competencies" :items="competencyOptions" multiple chips closable-chips
+                      variant="outlined" density="compact" hide-details placeholder="Kompetenzen wählen" />
+                  </td>
+                  <td class="lc-cell">
+                    <v-select v-model="row.methods" :items="METHODS_TOOLKIT" multiple chips closable-chips
+                      variant="outlined" density="compact" hide-details placeholder="Methoden wählen" />
+                  </td>
+                </tr>
+                <!-- Zeile 2 je LC: Lernziele + Inhalte -->
+                <tr class="lc-pair-b">
+                  <td class="lc-cell">
+                    <v-textarea v-model="row.learningGoals" variant="outlined" density="compact" rows="4" auto-grow hide-details />
+                  </td>
+                  <td class="lc-cell">
+                    <v-textarea v-model="row.content" variant="outlined" density="compact" rows="4" auto-grow hide-details />
+                  </td>
+                </tr>
+              </template>
+              <tr v-if="lcRows.length === 0"><td colspan="3" class="text-center text-caption">Keine Lernzyklen für dieses Modul.</td></tr>
+            </tbody>
+          </v-table>
           <v-icon size="42" color="primary" icon="mdi-cursor-default-click-outline" />
           <div class="text-body-1 mt-2">Wähle links ein Modul, um LC1–LC6 zu bearbeiten.</div>
         </v-card>
