@@ -22,7 +22,10 @@ export function useCompetencies() {
     loading.value = true
     error.value = null
     try {
-      competencies.value = await fetchEntities<Competency>(EntityTables.COMPETENCY)
+      const raw = await fetchEntities<Competency>(EntityTables.COMPETENCY)
+      // Legacy-Datensaetze ohne Pflichtfeld frameworkId (Kap. 15.1) werden dem
+      // Standard-Rahmen zugeordnet, damit die Taxonomie-Ansicht sie anzeigt.
+      competencies.value = raw.map(c => ({ ...c, frameworkId: c.frameworkId || 'cf-standard' }))
     } catch (e: any) {
       error.value = e.message
     } finally {

@@ -38,6 +38,11 @@ const router = createRouter({
           component: () => import('@/components/curriculum/CurriculumMappingPage.vue'),
         },
         {
+          path: 'modules',
+          name: 'modules',
+          component: () => import('@/views/ModulesView.vue'),
+        },
+        {
           path: 'taxonomy',
           name: 'taxonomy',
           component: () => import('@/views/TaxonomyView.vue'),
@@ -67,6 +72,10 @@ const router = createRouter({
           name: 'admin',
           component: () => import('@/views/AdminView.vue'),
           meta: { requiresAdmin: true },
+        },
+        {
+          path: '/:pathMatch(.*)*',
+          redirect: '/',
         },
         {
           // Einstellungen UNBEDINGT im AppLayout belassen: v-app-bar (Kopfzeile mit

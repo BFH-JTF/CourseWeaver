@@ -54,6 +54,8 @@ export const ALLOWED_ENTITY_TABLES = new Set([
   'competencies',
   'competency_frameworks',
   'proof_of_knowledge',
+
+  'proofs_of_competency',
   'proofs_of_knowledge',
   'assessment_results',
   'assessments',
