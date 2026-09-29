@@ -150,6 +150,9 @@
       <div class="text-caption text-medium-emphasis">{{ sortedModules.length }} / {{ modules.length }} Module</div>
     </div>
     <v-table>
+      <thead>
+        <tr>
+          <th>Code</th>
           <th>Name</th>
           <th>Credits</th>
           <th>Contact hrs</th>
