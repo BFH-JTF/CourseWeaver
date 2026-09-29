@@ -5,6 +5,63 @@
       <div class="text-body-2 opacity-90">Manage modules, their details (credits, hours), and inter-module constraints (prerequisites, corequisites, exclusions).</div>
     </div>
 
+
+    <!-- §Dashboard: Metriken + Grafiken je Ansicht -->
+    <v-row dense class="mb-2">
+      <v-col cols="6" md="3">
+        <v-card variant="flat" class="pa-3 card-lift h-100">
+          <div class="d-flex align-center ga-2 mb-1">
+            <v-avatar size="34" color="primary" icon="mdi-book-open-page-variant" />
+            <span class="text-body-2 text-medium-emphasis">Module gesamt</span>
+          </div>
+          <div class="text-h4 font-weight-bold">{{ metrics.moduleCount }}</div>
+        </v-card>
+      </v-col>
+      <v-col cols="6" md="3" :lg="2">
+        <v-card variant="flat" class="pa-3 card-lift h-100">
+          <div class="d-flex align-center ga-2 mb-1">
+            <v-avatar size="30" color="secondary" icon="mdi-clock-outline" />
+            <span class="text-body-2 text-medium-emphasis">Kontaktstunden</span>
+          </div>
+          <div class="text-h4 font-weight-bold">{{ metrics.totalContactHours }}</div>
+        </v-card>
+      </v-col>
+      <v-col cols="6" md="3" :lg="2">
+        <v-card variant="flat" class="pa-3 card-lift h-100">
+          <div class="d-flex align-center ga-2 mb-1">
+            <v-avatar size="30" color="accent" icon="mdi-book-account" />
+            <span class="text-body-2 text-medium-emphasis">Selbststudium</span>
+          </div>
+          <div class="text-h4 font-weight-bold">{{ metrics.totalSelfStudyHours }}</div>
+        </v-card>
+      </v-col>
+      <v-col cols="6" md="3" :lg="2">
+        <v-card variant="flat" class="pa-3 card-lift h-100">
+          <div class="d-flex align-center ga-2 mb-1">
+            <v-avatar size="30" color="success" icon="mdi-account-group" />
+            <span class="text-body-2 text-medium-emphasis">Kohorten</span>
+          </div>
+          <div class="text-h4 font-weight-bold">{{ metrics.classCount }}</div>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="4">
+        <v-card variant="flat" class="pa-3 card-lift h-100">
+          <div class="d-flex align-center ga-2 mb-2">
+            <v-avatar size="30" color="info" icon="mdi-chart-bar" />
+            <span class="text-body-2 text-medium-emphasis">Kontaktstunden pro Studienprogramm</span>
+          </div>
+          <div v-for="g in hoursByProgram" :key="g.programId" class="mb-2">
+            <div class="d-flex justify-space-between text-caption mb-1">
+              <span>{{ g.programId || "— (ohne Zuordnung)" }}</span>
+              <span class="text-medium-emphasis">{{ g.contactHours }} h · {{ g.moduleCount }} Modul(en)</span>
+            </div>
+            <v-progress-linear :model-value="g.percent" color="primary" rounded height="6" />
+          </div>
+          <div v-if="hoursByProgram.length === 0" class="text-caption text-medium-emphasis">Keine Zuordnungen.</div>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <div class="d-flex align-center justify-space-between mb-2">
       <h2 class="text-h6">Kohorten (Classes)</h2>
       <div class="d-flex ga-2">
@@ -17,10 +74,16 @@
       </div>
     </div>
 
+    <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-2">
+      <v-btn-toggle v-model="sortMode" mandatory density="compact" variant="outlined" color="primary">
+        <v-btn value="alphabet" prepend-icon="mdi-alphabetical-variant">Alphabet</v-btn>
+        <v-btn value="cohort" prepend-icon="mdi-account-group">Kohorte</v-btn>
+        <v-btn value="program" prepend-icon="mdi-school-outline">Studienprogramm</v-btn>
+        <v-btn value="mine" prepend-icon="mdi-account-check">Eigene Module</v-btn>
+      </v-btn-toggle>
+      <div class="text-caption text-medium-emphasis">{{ sortedModules.length }} / {{ modules.length }} Module</div>
+    </div>
     <v-table>
-      <thead>
-        <tr>
-          <th>Code</th>
           <th>Name</th>
           <th>Credits</th>
           <th>Contact hrs</th>
@@ -30,7 +93,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="m in modules" :key="m._id">
+        <tr v-for="m in sortedModules" :key="m._id">
           <td>{{ m.code }}</td>
           <td>{{ m.name }}</td>
           <td>{{ m.creditPoints }}</td>
@@ -42,7 +105,7 @@
             <v-btn size="x-small" icon="mdi-delete" variant="text" color="error" @click="deleteModule(m)" />
           </td>
         </tr>
-        <tr v-if="modules.length === 0">
+        <tr v-if="sortedModules.length === 0">
           <td colspan="6" class="text-center">No modules defined yet</td>
         </tr>
       </tbody>
@@ -397,4 +460,63 @@ async function deleteModule(m: any): Promise<void> {
     snackbar.value = true
   }
 }
+
+// ─── Dashboard (Metriken + Grafik) und Sortierung ───
+const sortMode = ref<'alphabet' | 'cohort' | 'program' | 'mine'>('alphabet')
+
+const cohortByModuleId = computed(() => {
+  const map = new Map<string, string>()
+  for (const c of classRows.value) {
+    for (const mid of c.moduleIds ?? []) {
+      if (!map.has(mid)) map.set(mid, String(c.name ?? c.code ?? c._id))
+    }
+  }
+  return map
+})
+
+function programLabelOf(m: any): string {
+  return (m.program_id ?? m.program ?? (m.studyProgramIds ?? [])[0] ?? '') as string
+}
+
+const metrics = computed(() => ({
+  moduleCount: modules.value.length,
+  totalContactHours: modules.value.reduce((sum, m) => sum + (Number(m.contactHours) || 0), 0),
+  totalSelfStudyHours: modules.value.reduce((sum, m) => sum + (Number(m.selfStudyHours) || 0), 0),
+  classCount: classRows.value.length,
+}))
+
+const hoursByProgram = computed(() => {
+  const agg = new Map<string, { programId: string; moduleCount: number; contactHours: number }>()
+  for (const m of modules.value) {
+    const key = (programLabelOf(m) || 'unassigned') as string
+    const cur = agg.get(key) ?? { programId: key, moduleCount: 0, contactHours: 0 }
+    cur.moduleCount++
+    cur.contactHours += Number(m.contactHours) || 0
+    agg.set(key, cur)
+  }
+  const list = [...agg.values()].sort((a, b) => b.contactHours - a.contactHours)
+  const max = Math.max(1, ...list.map((x) => x.contactHours))
+  return list.map((x) => ({ ...x, percent: Math.round((x.contactHours / max) * 100) }))
+})
+
+const sortedModules = computed(() => {
+  const list = [...modules.value]
+  const label = (v: unknown) => String(v ?? '')
+  const cohortLabel = (m: any) => cohortByModuleId.value.get(String(m.id ?? m._id)) ?? 'unassigned'
+  const isMine = (m: any) => m._isAdmin === true || m.isAdmin === true
+  switch (sortMode.value) {
+    case 'cohort':
+      list.sort((a, b) => cohortLabel(a).localeCompare(cohortLabel(b)) || label(a.name).localeCompare(label(b.name)))
+      break
+    case 'program':
+      list.sort((a, b) => programLabelOf(a).localeCompare(programLabelOf(b)) || label(a.name).localeCompare(label(b.name)))
+      break
+    case 'mine':
+      list.sort((a, b) => Number(isMine(b)) - Number(isMine(a)) || label(a.name).localeCompare(label(b.name)))
+      break
+    default:
+      list.sort((a, b) => label(a.name).localeCompare(label(b.name)))
+  }
+  return sortMode.value === 'mine' ? list.filter(isMine) : list
+})
 </script>
