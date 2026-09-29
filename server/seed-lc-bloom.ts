@@ -152,7 +152,7 @@ async function main() {
     get<any[]>('curriculum_modules'),
     get<any[]>('competencies'),
   ])
-  const competencyPool = (competencyRows ?? []).map(c => String(c.id ?? c._id))
+  const competencyPool = (competencyRows ?? []).filter(c => !String(c.id).startsWith('comp_')).map(c => String(c.id ?? c._id))
   const methodToolkit = [
     'Lecture (Input)', 'Case Study', 'Gruppenarbeit', 'Flip Teaching',
     'Diskussion / Debrief', 'Workshop', 'Selbststudium (Podcast/Lesetext)',
