@@ -165,7 +165,7 @@ async function main() {
   const existingKey = new Set(contents.map(r => `${r.moduleId}#${r.lcNumber}`))
   void existingKey
   let createdRows = 0
-  for (const mod of modules) {
+  for (const [moduleIdx, mod] of modules.entries()) {
     const moduleId = String(mod.id ?? mod._id)
     const name = String(mod.name ?? '')
     const topic = topicOf(name)
@@ -186,8 +186,8 @@ async function main() {
         learningGoals: goalsText,
         content: contentBlock(n, topic, bulletsFrom(String(lcOrig?.mainContent ?? ''), 2)),
         assignment: String(lcOrig?.assignmentDescription ?? ''),
-        competencies: [0, 1, 2].map(k => competencyPool[k] ?? competencyPool[(n + k) % Math.max(1, competencyPool.length)]).filter(Boolean),
-        methods: methodToolkit.slice(0, 2 + (n % 2)),
+        competencies: [0, 1, 2].map(k => competencyPool[(moduleIdx * 3 + n * 2 + k) % Math.max(1, competencyPool.length)]).filter(Boolean),
+        methods: [0, 1, 2].map(k => methodToolkit[(moduleIdx * 4 + n * 2 + k) % methodToolkit.length]).filter(Boolean),
         version: 'seed-bloom-v2',
       }
       contents.push(row)
@@ -211,6 +211,9 @@ async function main() {
     const keyConcepts = bulletsFrom(String(lcX?.mainContent ?? row.content ?? ''), 2)
     row.learningGoals = stage.goals(topic.t, topic.s).map(g => `• ${g}`).join('\n')
     row.content = contentBlock(lc, topic, keyConcepts)
+    const moduleIdx2 = modules.findIndex(m => (m.id ?? m._id) === row.moduleId)
+    row.competencies = [0, 1, 2].map(k => competencyPool[((moduleIdx2 < 0 ? 0 : moduleIdx2) * 3 + lc * 2 + k) % Math.max(1, competencyPool.length)]).filter(Boolean)
+    row.methods = [0, 1, 2].map(k => methodToolkit[((moduleIdx2 < 0 ? 0 : moduleIdx2) * 4 + lc * 2 + k) % methodToolkit.length]).filter(Boolean)
     row.version = 'seed-bloom-v2'
     row.updated_at = new Date().toISOString()
 
