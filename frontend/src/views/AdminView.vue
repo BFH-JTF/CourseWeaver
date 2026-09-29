@@ -21,6 +21,44 @@
       {{ successMsg }}
     </v-alert>
 
+    <!-- RBAC Role assignments (matrix: Reader 0 / User 1 / Superuser 2 / Admin 3) -->
+    <v-card class="elevation-2 rounded-lg mb-4">
+      <v-card-title class="d-flex align-center py-3 px-4">
+        <v-icon start color="primary">mdi-key-chain-variant</v-icon>
+        <span class="text-h6 font-weight-bold">RBAC Role assignments</span>
+        <v-spacer />
+        <v-chip variant="tonal" color="primary" size="small" class="font-weight-bold">
+          {{ rbacRoles.length }} Zuweisungen
+        </v-chip>
+      </v-card-title>
+      <v-card-text class="px-4">
+        <p class="text-body-2 text-medium-emphasis mb-3">
+          Geordnete Stufen: reader (0) – nur ansehen · user (1) – eigene Module · superuser (2) – Programme/Degrees + Freigaben · admin (3) – Struktur & Rollen. Vererbung: die jeweils **spezifischste** Zuweisung gewinnt (module → degree → program → department).
+        </p>
+        <v-row dense class="mb-3">
+          <v-col cols="12" md="3"><v-select v-model="rbacForm.userId" :items="userOptions" label="User" density="compact" variant="outlined" /></v-col>
+          <v-col cols="12" md="3"><v-select v-model="rbacForm.entityType" :items="rbacEntityTypes" label="entityType" density="compact" variant="outlined" /></v-col>
+          <v-col cols="12" md="3"><v-text-field v-model="rbacForm.entityId" label="entityId" density="compact" variant="outlined" placeholder="entities id department/program/modul" /></v-col>
+          <v-col cols="12" md="2"><v-select v-model="rbacForm.role" :items="['reader', 'user', 'superuser', 'admin']" label="role" density="compact" variant="outlined" /></v-col>
+          <v-col cols="12" md="1">
+            <v-btn color="primary" size="small" icon="mdi-content-save" :loading="rbacSaving" @click="rbacUpsert" />
+          </v-col>
+        </v-row>
+        <v-data-table dense :headers="rbacHeaders" :items="rbacRoles" items-per-page="10" class="elevation-1">
+          <template #item.role="{ item }">
+            <v-chip size="x-small" :color="rbacRoleColor(item.role)">{{ item.role }} ({{ rbacLevel(item.role) }})</v-chip>
+          </template>
+          <template #item.actions="{ item }">
+            <v-btn size="x-small" icon="mdi-delete" color="error" variant="text" @click="rbacDelete(item)" />
+          </template>
+        </v-data-table>
+        <div class="text-caption mt-2">
+          Matrix: Curriculum ansehen ✅/✅/✅/✅ · eigene Module bearbeiten ❌/✅/✅/✅ · fremde Module ❌/❌/✅/✅ · Version freigeben ❌/❌/✅/✅ · Struktur ❌/❌/❌/✅ · Rollen vergeben ❌/❌/❌/✅
+        </div>
+      </v-card-text>
+    </v-card>
+
+    
     <!-- Users table -->
     <v-card class="elevation-2 rounded-lg">
       <v-card-title class="d-flex align-center py-3 px-4">
@@ -268,11 +306,78 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+
+// ─── RBAC-Rollenverwaltung (geordnete Stufen: reader 0, user 1, superuser 2, admin 3) ───
+const rbacForm = ref<{ userId: string; entityType: string; entityId: string; role: string }>({
+  userId: '' as string,
+  entityType: 'module',
+  entityId: '',
+  role: 'user',
+})
+const rbacEntityTypes = ['department', 'program', 'degree', 'module']
+const rbacSaving = ref(false)
+const rbacRoles = ref<Array<{ user_id: string; entity_type: string; entity_id: string; role: string }>>([])
+
+const userOptions = computed(() => (users.value ?? []).map(u => ({
+  title: u.name ?? u.email ?? u.id,
+  value: u.id,
+})))
+
+const rbacHeaders = [
+  { title: 'User', value: 'user_id' },
+  { title: 'entityType', value: 'entity_type' },
+  { title: 'entityId', value: 'entity_id' },
+  { title: 'Rolle', value: 'role' },
+  { title: 'Aktionen', value: 'actions', sortable: false },
+]
+
+function rbacLevel(role: string): number {
+  return ({ reader: 0, user: 1, superuser: 2, admin: 3 } as Record<string, number>)[role] ?? 0
+}
+
+function rbacRoleColor(role: string): string {
+  return ({ reader: 'grey', user: 'primary', superuser: 'warning', admin: 'error' } as Record<string, string>)[role] ?? 'default'
+}
+
+async function rbacFetch() {
+  const res = await fetch(((import.meta.env.DATABASE_URL as string) ?? "") + "/rbac/roles")
+  if (res.ok) rbacRoles.value = await res.json()
+}
+
+async function rbacUpsert() {
+  rbacSaving.value = true
+  try {
+    const res = await fetch(((import.meta.env.DATABASE_URL as string) ?? '') + '/rbac/roles', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rbacForm.value),
+    })
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    successMsg.value = 'Rolle gesetzt: ' + rbacForm.value.userId + ' → ' + rbacForm.value.role
+    await rbacFetch()
+    await fetchUsers()
+  } catch (e: any) {
+    error.value = e.message || 'Fehler beim Speichern der Rolle'
+  } finally {
+    rbacSaving.value = false
+  }
+}
+
+async function rbacDelete(item: any) {
+  if (!confirm('Zuweisung löschen?')) return
+  await fetch(((import.meta.env.DATABASE_URL as string) ?? '') + '/rbac/roles', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: item.user_id, entityType: item.entity_type, entityId: item.entity_id }),
+  })
+  await rbacFetch()
+  successMsg.value = 'Zuweisung entfernt'
+}
+import { computed, ref, onMounted } from 'vue'
 import { useAuthStore, LocalUserProfile } from '@/stores/auth'
 
 const auth = useAuthStore()
-const users = ref<LocalUserProfile[]>([])
+const users = ref<any[]>([])
 const loading = ref(false)
 const updatingId = ref<string | null>(null)
 const error = ref('')
@@ -489,6 +594,7 @@ async function toggleAdminRole(user: LocalUserProfile) {
   }
 }
 
+void rbacFetch()
 onMounted(() => {
   fetchUsers()
 })

@@ -153,6 +153,17 @@ export async function initDatabase(): Promise<boolean> {
         );
         CREATE INDEX IF NOT EXISTS idx_user_cache_email ON local_user_cache(email);
 
+        CREATE TABLE IF NOT EXISTS entity_roles (
+          user_id VARCHAR(255) NOT NULL REFERENCES local_users(id) ON DELETE CASCADE,
+          entity_type VARCHAR(50) NOT NULL,
+          entity_id VARCHAR(255) NOT NULL,
+          role VARCHAR(20) NOT NULL CHECK (role IN ('reader','user','superuser','admin')),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          PRIMARY KEY (user_id, entity_type, entity_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_entity_roles_entity ON entity_roles(entity_type, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_entity_roles_user ON entity_roles(user_id);
+
         CREATE TABLE IF NOT EXISTS entity_acl (
           table_name VARCHAR(100) NOT NULL,
           entity_id VARCHAR(255) NOT NULL,
@@ -940,3 +951,137 @@ export async function findTopKSimilar(
     similarity: Number(row.similarity),
   }))
 }
+
+
+// ─── RBAC (data-model-requirement 29.09.2026) ───────────────────────────────
+// Zentrale Anmeldung (OIDC) = Authentifizierung; Rollen hier = Autorisierung.
+// Rollen sind GEORDNETE Stufen: reader(0) < user(1) < superuser(2) < admin(3).
+export type RbacRole = 'reader' | 'user' | 'superuser' | 'admin'
+export const ROLE_LEVEL: Record<RbacRole, number> = { reader: 0, user: 1, superuser: 2, admin: 3 }
+export const RBAC_TABLES = ['department', 'program', 'degree', 'module'] as const
+export type RbacTable = (typeof RBAC_TABLES)[number]
+
+export function levelOf(role: RbacRole): number {
+  return ROLE_LEVEL[role] ?? 0
+}
+
+export function meetsLevel(role: RbacRole | null | undefined, min: RbacRole): boolean {
+  return levelOf(role ?? 'reader') >= levelOf(min)
+}
+
+/** abstrahiert Tabelle → entity_type (RBAC-Namen) */
+export function entityTypeOf(table: string): string {
+  if (table.startsWith('degree')) return 'degree'
+  if (table.startsWith('program') || table === 'study_programs') return 'program'
+  if (table.startsWith('department')) return 'department'
+  return 'module'
+}
+
+async function fetchEntityRow(table: string, id: string): Promise<any | null> {
+  if (isConnected && pool) {
+    try {
+      const res = await pool.query(
+        'SELECT data FROM entity_store WHERE table_name = $1 AND id = $2',
+        [table, id]
+      )
+      return res.rows[0]?.data ?? null
+    } catch (err) {
+      console.error('[rbac] fetchEntityRow failed:', err)
+      return null
+    }
+  }
+  const list = (memoryStore as any).get?.(table) ?? []
+  return list.find((x: any) => x.id === id) ?? null
+}
+
+/**
+ * Vererbt Rollederesolution über die Hierarchie:
+ *   module → degree(?) → program → department — "spezifischster Treffer gewinnt".
+ * Nichts hinterlegt → 'reader' (0).
+ */
+export async function resolveEntityRole(userId: string, table: string, entityId: string): Promise<RbacRole> {
+  if (!userId) return 'reader'
+  let requiresRole: RbacRole = 'reader'
+
+  // Kette vom Ziel-Objekt nach oben aufbauen
+  const chain: Array<{ type: string; id: string }> = []
+  const entityType = entityTypeOf(table)
+  const row = await fetchEntityRow(table, entityId)
+  if (row) {
+    chain.push({ type: entityType, id: entityId })
+    // module → degreeIds
+    const degreeId = (row.degreeIds ?? [])[0]
+    if (degreeId) {
+      chain.push({ type: 'degree', id: degreeId })
+      const degree = await fetchEntityRow('degrees', String(degreeId))
+      const programId = (degree?.programIds ?? degree?.programIDs ?? [])[0]
+      if (programId) {
+        chain.push({ type: 'program', id: String(programId) })
+        const program = await fetchEntityRow('programs', String(programId))
+        const departmentId = (program?.departmentIds ?? [])[0]
+        if (departmentId) chain.push({ type: 'department', id: String(departmentId) })
+      }
+    }
+  } else {
+    chain.push({ type: entityType, id: entityId })
+  }
+
+  // "spezifischster Treffer gewinnt": von der Entität die Kette aufwärts,
+  // ERSTER passender Eintrag gewinnt; sonst reader.
+  let resolved: RbacRole = 'reader'
+  let found = false
+  for (const e of chain) {
+    if (isConnected && pool) {
+      try {
+        const res = await pool.query(
+          'SELECT role FROM entity_roles WHERE user_id = $1 AND entity_type = $2 AND entity_id = $3',
+          [userId, e.type, e.id]
+        )
+        if (res.rows.length > 0) {
+          resolved = res.rows[0].role as RbacRole
+          found = true
+          break
+        } else continue
+      } catch (err) {
+        console.error('[rbac] resolveEntityRole failed:', err)
+        return requiresRole
+      }
+    } else break
+  }
+  if (!found) return 'reader'
+  return resolved
+}
+
+export async function setEntityRole(userId: string, entityType: string, entityId: string, role: RbacRole): Promise<void> {
+  if (isConnected && pool) {
+    await pool.query(
+      `INSERT INTO entity_roles (user_id, entity_type, entity_id, role)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, entity_type, entity_id) DO UPDATE SET role = EXCLUDED.role`,
+      [userId, entityType, entityId, role]
+    )
+    return
+  }
+  // memory-only fallback
+  void entityType; void entityId; void role
+}
+
+export async function listEntityRoles(entityType?: string): Promise<Array<{ user_id: string; entity_type: string; entity_id: string; role: string }>> {
+  if (isConnected && pool) {
+    const res = entityType
+      ? await pool.query('SELECT user_id, entity_type, entity_id, role FROM entity_roles WHERE entity_type = $1 ORDER BY created_at DESC', [entityType])
+      : await pool.query('SELECT user_id, entity_type, entity_id, role FROM entity_roles ORDER BY created_at DESC')
+    return res.rows
+  }
+  return []
+}
+
+export async function removeEntityRole(userId: string, entityType: string, entityId: string): Promise<void> {
+  if (isConnected && pool) {
+    await pool.query(
+      'DELETE FROM entity_roles WHERE user_id = $1 AND entity_type = $2 AND entity_id = $3',
+      [userId, entityType, entityId]
+    )
+  }
+}
+

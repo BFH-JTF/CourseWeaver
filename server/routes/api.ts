@@ -20,6 +20,7 @@ import {
 import { authRouter } from './auth'
 import { usersRouter } from './users'
 import { AuthenticatedRequest, extractOidcClaims } from '../auth'
+import { ROLE_LEVEL, RbacRole, resolveEntityRole, setEntityRole, listEntityRoles, removeEntityRole } from '../db'
 
 const SUPERUSER_TABLES = new Set(['curriculum_versions', 'classes',
  'semesters', 'lessons', 'lecturers', 'weeks', 'schedule_entries'])
@@ -89,6 +90,140 @@ apiRouter.use('/auth', authRouter)
 
 // User & role management routes
 apiRouter.use('/users', usersRouter)
+
+// ─── RBAC: geordnete Stufen (reader 0 < user 1 < superuser 2 < admin 3) ────────
+// Matrix (Requirement 29.09.2026):
+//   view            → reader(0)+      — alle Authentifizierten (und Anonymous im Dev)
+//   editOwn         → user(1)+        wenn object-admin/creator, sonst superuser
+//   editForeign     → superuser(2)+   (Module fremder Programme)
+//   releaseVersion  → superuser(2)+   (curriculum_versions)
+//   manageStructure → admin(3)+       (departments/programs/degrees anlegen)
+//   manageRoles     → admin(3)+       (Rollen vergeben; nur global admin)
+
+const STRUCTURE_TABLES = new Set(['departments', 'programs', 'degrees', 'study_programs'])
+const RELEASE_TABLES = new Set(['curriculum_versions'])
+
+async function effectiveRoleLevel(req: Request, entity: string, entityId?: string): Promise<number> {
+  const claims = extractOidcClaims(req)
+  const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
+  const isGlobalAdmin = localUser?.is_admin ?? false
+  // Dev-Kompatibilität (keine OIDC gesetzt, kein API-Auth): unauthentifizierte
+  /// Requests gelten als global admin (Historie/Logs des Bestandsmodells).
+  if (!claims && !process.env.API_AUTH_TOKEN) return ROLE_LEVEL.admin
+  if (isGlobalAdmin) return ROLE_LEVEL.admin
+  const resolved = entityId ? await resolveEntityRole(localUser!.id, entity, entityId) : 'reader'
+  return ROLE_LEVEL[resolved]
+}
+
+async function requireMutationRight(req: Request, res: Response, entity: string, entityId?: string): Promise<void> {
+  const claims = extractOidcClaims(req)
+  const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
+  const isGlobalAdmin = localUser?.is_admin ?? false
+  const claims_missing = !claims
+
+  // Dev-Bypass unverändert (keine Auth getestest in der Suite)
+  if (claims_missing && !process.env.API_AUTH_TOKEN) return
+
+  // Struktur-Tabellen & Schnittstellen-Tabellen: nur global admin (3)
+  if (STRUCTURE_TABLES.has(entity) || STRUCTURE_TABLES.has(entity) ) {
+    if (!isGlobalAdmin) { res.status(403).json({ error: 'Nur globale Administratoren (admin) dürfen Struktur-Metadaten ändern' }); return }
+  }
+  if (RELEASE_TABLES.has(entity)) {
+    if (!isGlobalAdmin) {
+      // superuser(2)+ darf freigeben
+      const lvl = await effectiveRoleLevel(req, entity, entityId)
+      if (lvl < ROLE_LEVEL.superuser) { res.status(403).json({ error: 'Freigabe erfordert superuser oder admin' }); return }
+    }
+  }
+
+  // Entitäten (z.B. Module): resolveEntityRole → bewertet
+  const level = await effectiveRoleLevel(req, entity, entityId)
+  if (level >= ROLE_LEVEL.admin) return
+  // superuser (2) darf fremde Programme bearbeiten
+  if (level >= ROLE_LEVEL.superuser) return
+  // user (1) darf eigene: object-admin ODER created_by
+  if (localUser && (await isEntityAdmin(entity, entityId!, localUser.id))) return
+  if (localUser && entityId) {
+    const row = await getEntityById(entity, entityId)
+    if (row && (row.created_by === localUser.id)) return
+  }
+  if (level >= ROLE_LEVEL.user && localUser && !entityId) return // create on own scope
+  res.status(403).json({ error: 'Keine Berechtigung (RBAC-Stufe zu tief)' })
+  return
+}
+
+
+// ─── RBAC-Rollen-Zuweisungen (CRUD fürs künftige Admin-Tool) ───────────────────
+// Nur globale Administratoren (admin, Stufe 3) dürfen Zuweisungen verwalten.
+
+apiRouter.get('/rbac/roles', async (req: Request, res: Response) => {
+  try {
+    const claims = extractOidcClaims(req)
+    const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
+    const isGlobalAdmin = localUser?.is_admin ?? false
+    if (!claims && !process.env.API_AUTH_TOKEN) { /* dev bypass */ } else if (!isGlobalAdmin) {
+      res.status(403).json({ error: 'Nur globale Administratoren dürfen Rollen einsehen' })
+      return
+    }
+    res.json(await listEntityRoles(String(req.query.entityType ?? '') || undefined))
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to load roles' })
+  }
+})
+
+apiRouter.put('/rbac/roles', async (req: Request, res: Response) => {
+  try {
+    const claims = extractOidcClaims(req)
+    const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
+    const isGlobalAdmin = localUser?.is_admin ?? false
+    if (claims && !isGlobalAdmin) {
+      res.status(403).json({ error: 'Nur globale Administratoren dürfen Rollen vergeben' })
+      return
+    }
+    const { userId, entityType, entityId, role } = req.body || {}
+    if (!userId || !entityType || !entityId || !role) {
+      res.status(400).json({ error: 'userId, entityType, entityId und role erforderlich' })
+      return
+    }
+    if (!['reader', 'user', 'superuser', 'admin'].includes(role)) {
+      res.status(400).json({ error: 'Unbekannte Rolle' })
+      return
+    }
+    await setEntityRole(String(userId), String(entityType), String(entityId), role as any)
+    res.json({ success: true, userId, entityType, entityId, role })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to set role' })
+  }
+})
+
+apiRouter.delete('/rbac/roles', async (req: Request, res: Response) => {
+  try {
+    const claims = extractOidcClaims(req)
+    const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
+    if (claims && !localUser?.is_admin) {
+      res.status(403).json({ error: 'Nur globale Administratoren dürfen Rollen löschen' })
+      return
+    }
+    const { userId, entityType, entityId } = req.body || {}
+    await removeEntityRole(String(userId), String(entityType), String(entityId))
+    res.json({ success: true })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to remove role' })
+  }
+})
+
+apiRouter.get('/rbac/me', async (req: Request, res: Response) => {
+  try {
+    const claims = extractOidcClaims(req)
+    const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
+    if (!claims) { res.json({ role: process.env.API_AUTH_TOKEN ? 'reader' : 'admin', dev: true }); return }
+    if (!localUser) { res.status(404).json({ error: 'User unbekannt' }); return }
+    const role = localUser.is_admin ? 'admin' : await resolveEntityRole(localUser.id, String(req.query.entityType ?? 'module'), String(req.query.entityId ?? ''))
+    res.json({ role, userId: localUser.id, isGlobalAdmin: localUser.is_admin ?? false })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
 
 // ─── ACL Admin Routes ──────────────────────────────────────────────────────────
 
@@ -293,6 +428,8 @@ apiRouter.post('/:entity', async (req: Request, res: Response) => {
     const entity = requireEntity(String(req.params.entity), res)
     if (!entity) return
     const body = req.body || {}
+    await requireMutationRight(req, res, entity, undefined)
+    if (res.headersSent) return
     const id = body.id || body._id || `cw_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 
     // Creator becomes admin unless it's a superuser-only table
@@ -358,6 +495,8 @@ apiRouter.patch('/:entity/:id', async (req: Request, res: Response) => {
     if (!entity) return
     const id = String(req.params.id)
     const body = req.body || {}
+    await requireMutationRight(req, res, entity, id)
+    if (res.headersSent) return
 
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
@@ -389,6 +528,8 @@ apiRouter.delete('/:entity/:id', async (req: Request, res: Response) => {
     const entity = requireEntity(String(req.params.entity), res)
     if (!entity) return
     const id = String(req.params.id)
+    await requireMutationRight(req, res, entity, id)
+    if (res.headersSent) return
     const claims = extractOidcClaims(req)
     const localUser = claims ? await getUserByOidc(claims.iss, claims.sub) : null
     const isGlobalAdmin = claims
