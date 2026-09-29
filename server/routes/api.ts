@@ -36,6 +36,8 @@ export const ALLOWED_ENTITY_TABLES = new Set([
   'lc_contents',
   'programs',
   'modules',
+  'classes',
+
   'learning_cycles',
   'curriculum_modules',
   'semesters',

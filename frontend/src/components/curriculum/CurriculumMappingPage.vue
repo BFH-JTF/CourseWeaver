@@ -9,9 +9,10 @@
             {{ visibleModules.length }} Module · {{ totalSemesters }} Semester · {{ totalCycles }} Learning Cycles importiert
           </div>
         </div>
-        <div>
-          <v-btn variant="outlined" color="accent" prepend-icon="mdi-tray-arrow-down" @click="importOpen = true">
-            Daten importieren
+        <div class="d-flex ga-2">
+          <!-- Import lebt in der Modules-Ansicht (Anfrage 29.09.2026): hier nur Link zur Quelle -->
+          <v-btn variant="text" color="primary" prepend-icon="mdi-arrow-left-right" to="/modules">
+            Modules (Import &amp; Bearbeitung)
           </v-btn>
         </div>
       </div>

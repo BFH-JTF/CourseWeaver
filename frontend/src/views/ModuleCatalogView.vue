@@ -1,6 +1,13 @@
 <template>
   <v-container>
     <div class="view-hero">
+    <!-- Excel-Import (Modul-Konzepte) für die canonical-Daten (Anforderung 29.09.2026) -->
+    <div class="d-flex align-center justify-end ga-2 mb-2">
+      <ImportCsvDialog v-model="csvImportOpen" @imported="reloadAfterImport" />
+      <v-btn color="accent" variant="flat" prepend-icon="mdi-tray-arrow-down" @click="csvImportOpen = true">
+        Daten importieren (Excel)
+      </v-btn>
+    </div>
       <h1 class="text-h4 font-weight-bold">Modules</h1>
       <div class="text-body-2 opacity-90">
         Modulprofile je Dozierender: Name, ECTS, Kontaktstunden, Co-Teaching, Lernziele und Inhalte für LC1–LC6 (mit Dropdowns für wiederkehrende Elemente).
@@ -150,6 +157,7 @@ import { ref, computed, onMounted } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { useCompetencies } from '@/composables/useCompetencies'
+import ImportCsvDialog from '@/components/CsvImportDialog.vue'
 
 const METHODS_TOOLKIT = [
   'Lecture (Input)', 'Case Study', 'Gruppenarbeit', 'Flip Teaching',
@@ -183,6 +191,7 @@ const classRows = ref<any[]>([])
 const curriculumModules = ref<any[]>([])
 const lcContents = ref<LcContentRow[]>([])
 
+const csvImportOpen = ref(false)
 const selectedLecturerId = ref<string | null>(null)
 const selectedClassId = ref<string | null>(null)
 const selectedModuleId = ref<string | null>(null)
@@ -258,6 +267,17 @@ function ensureLcRowsForModule() {
       methods: METHODS_TOOLKIT.slice(0, 2),
     })
   }
+}
+
+async function reloadAfterImport() {
+  await Promise.all([
+    fetchEntities<any>(EntityTables.MODULE).then(j => (modules.value = j)),
+    fetchEntities<any>(EntityTables.CURRICULUM_MODULE).then(j => (curriculumModules.value = j)),
+    fetchEntities<LcContentRow>(EntityTables.LC_CONTENT).then(j => (lcContents.value = j)),
+    fetchCompetencies(),
+  ])
+  snackbarText.value = 'Daten aktualisiert'
+  snackbar.value = true
 }
 
 async function saveLcContents() {

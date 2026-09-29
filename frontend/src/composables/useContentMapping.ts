@@ -138,18 +138,25 @@ export function useContentMapping() {
     semester?: number
     learningCycles: LearningCycleDto[]
   }
-  async function loadCycles(): Promise<LearningCycleDto[]> {
-    const res = await fetch('/api/curriculum_modules')
-    const stored: CurriculumModuleDto[] = res.ok ? await res.json() : []
-    // Backward compat: falls die alte learning_cycles-Flat-Tabelle gefüllt ist, merge
-    if (!stored.length) {
-      const legacy = await fetch('/api/learning_cycles').then(r => (r.ok ? r.json() : []))
-      return legacy as LearningCycleDto[]
+  async function loadCycles(program?: string): Promise<LearningCycleDto[]> {
+    // Primärquelle = Brücke zur Modules-Ansicht (canonical, Anfrage 29.09.2026):
+    // dieselben Datensätze inkl. Bloom-Lernzielen, Methoden und Inhalten.
+    const res = await fetch('/api/mapping/cycles-from-modules' + (program ? '?program=' + encodeURIComponent(program) : ''))
+    if (res.ok) {
+      const data = await res.json()
+      if (data.cycles?.length) return data.cycles as LearningCycleDto[]
     }
-    return stored.flatMap(m =>
-      // nested LCs sind vollständige LearningCycle-Daten; id/moduleId/semester vom Modul halten
-      m.learningCycles.map((lc) => ({ ...lc, id: lc.id, moduleId: m.id, semester: m.semester })),
-    )
+    // Fallback 1: curriculum_modules (Excel-Quelle)
+    const res2 = await fetch('/api/curriculum_modules')
+    const stored: CurriculumModuleDto[] = res2.ok ? await res2.json() : []
+    if (stored.length) {
+      return stored.flatMap(m =>
+        m.learningCycles.map((lc) => ({ ...lc, id: lc.id, moduleId: m.id, semester: m.semester })),
+      )
+    }
+    // Fallback 2: alte flat learning_cycles Tabelle
+    const legacy = await fetch('/api/learning_cycles').then(r => (r.ok ? r.json() : []))
+    return legacy as LearningCycleDto[]
   }
 
   async function refresh(program?: string, threshold?: number): Promise<void> {
@@ -157,7 +164,7 @@ export function useContentMapping() {
     error.value = null
     try {
       await loadCatalog()
-      cycles.value = await loadCycles()
+      cycles.value = await loadCycles(program)
       if (!cycles.value.length) {
         map.value = null
         return
