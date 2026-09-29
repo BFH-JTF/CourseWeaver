@@ -277,7 +277,6 @@
       </v-card>
     </template>
   </v-container>
-  </div>
 </template>
 
 <script setup lang="ts">
