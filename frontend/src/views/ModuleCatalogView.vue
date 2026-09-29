@@ -82,14 +82,12 @@
           <v-alert v-if="!curriculumModules.find(cm => cm.id === selectedModuleId)" type="info" variant="tonal" density="compact" class="mb-2">
             Für dieses Modul sind keine Excel-Lernzyklen vorhanden — LC-Zeilen werden neu angelegt, wenn gespeichert wird.
           </v-alert>
-          <v-table>
+          <v-table class="lc-table">
             <thead>
               <tr>
-                <th style="width:80px">LC</th>
-                <th>Lernziele (Learning Goals)</th>
-                <th style="width:290px">Kompetenzen</th>
-                <th>Inhalte</th>
-                <th style="width:250px">Methoden</th>
+                <th style="width:64px">LC</th>
+                <th style="width:47%">Lernziele (Learning Goals) · Kompetenzen</th>
+                <th>Inhalte · Methoden</th>
               </tr>
             </thead>
             <tbody>
@@ -128,7 +126,7 @@
                 </td>
               </tr>
               <tr v-if="lcRows.length === 0">
-                <td colspan="5" class="text-center text-caption">Keine Lernzyklen für dieses Modul.</td>
+                <td colspan="3" class="text-center text-caption">Keine Lernzyklen für dieses Modul.</td>
               </tr>
             </tbody>
           </v-table>
@@ -293,3 +291,13 @@ onMounted(async () => {
   ])
 })
 </script>
+
+<style scoped>
+.lc-table td { vertical-align: top; }
+.lc-table { table-layout: fixed; width: 100%; }
+.lc-row td { vertical-align: top !important; }
+.lc-cell-wide { width: 47%; }
+.lc-cell-lc { width: 64px; text-align: center; }
+.lc-stack { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.lc-cap { margin-bottom: 2px; }
+</style>
