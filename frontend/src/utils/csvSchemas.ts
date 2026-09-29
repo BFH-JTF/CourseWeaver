@@ -2,7 +2,6 @@ import type { ImportType, ImportTypeConfig, ImportFieldDefinition, ColumnMapping
 import type { Competency, SkillLevel } from '@/types/competency'
 import type { Module } from '@/stores/curriculum'
 import type { StudyProgram } from '@/types/curriculum'
-import type { ProofOfKnowledge, AssessmentForm, AssignmentScope } from '@/types/proofOfKnowledge'
 import type { ProofOfCompetency, AnswerFormat } from '@/types/proofOfCompetency'
 import type { Department, Program, Degree } from '@/types/curriculum'
 import type { MatrixCompetency } from '@/types/matrixCompetency'
@@ -859,10 +858,10 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
   },
   proofs_of_knowledge: {
     type: 'proofs_of_knowledge',
-    label: 'Proofs of Knowledge',
+    label: 'Proofs of Competency',
     icon: 'mdi-file-certificate-outline',
-    description: 'Assessment methods, exams, assignments, and duration.',
-    entityName: 'Proof of Knowledge',
+    description: 'Assessment methods, exams, assignments, and duration (merged model: answerFormats[]).',
+    entityName: 'Proof of Competency',
     fields: [
       {
         key: 'name',
@@ -925,25 +924,25 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['durationminutes', 'duration_minutes', 'duration', 'dauer', 'pruefungsdauer', 'minutes', 'minuten', 'zeit'],
       },
     ],
-    transform: (mappedRows: Record<string, any>[]): ProofOfKnowledge[] => {
+    // data-model-comparison.md §3.2 (Big Bang): ProofOfKnowledge-Booleans
+    // werden beim Import direkt zu ProofOfCompetency.answerFormats[] konvertiert.
+    transform: (mappedRows: Record<string, any>[]): ProofOfCompetency[] => {
       return mappedRows.map(obj => {
-        let assessmentType: AssessmentForm = 'written'
         const at = String(obj.assessmentType || '').toLowerCase().trim()
-        if (at.includes('oral') || at.includes('muend')) {
-          assessmentType = 'oral'
-        }
+        const format: AnswerFormat[] = []
+        format.push(at.includes('oral') || at.includes('muend') ? 'oral' : 'written')
+        if (parseBoolean(obj.multipleChoice)) format.push('multipleChoice')
+        if (parseBoolean(obj.freeText)) format.push('freeText')
 
-        let assignmentScope: AssignmentScope = 'individual'
+        let assignmentScope: 'individual' | 'group' | string = 'individual'
         const as = String(obj.assignmentScope || '').toLowerCase().trim()
         if (as.includes('group') || as.includes('grupp')) {
           assignmentScope = 'group'
         }
 
-        const proof: ProofOfKnowledge = {
-          name: String(obj.name || 'Unnamed Proof of Knowledge'),
-          assessmentType,
-          multipleChoice: parseBoolean(obj.multipleChoice),
-          freeText: parseBoolean(obj.freeText),
+        const proof: ProofOfCompetency = {
+          name: String(obj.name || 'Unnamed Proof of Competency'),
+          answerFormats: format,
           assignmentScope,
         }
 

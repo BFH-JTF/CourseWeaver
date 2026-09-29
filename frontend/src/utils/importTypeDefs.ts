@@ -34,8 +34,8 @@ export const IMPORT_TYPE_DEFS: ImportTypeDef[] = [
   },
   {
     id: 'proofs_of_knowledge',
-    label: 'Proofs of Knowledge',
-    signatureColumns: ['assessmenttype', 'multiplechoice', 'freetext', 'assignmentscope'],
+    label: 'Proofs of Competency',
+    signatureColumns: ['assessmenttype', 'multiplechoice', 'freetext', 'assignmentscope', 'answerformats'],
   },
 ]
 

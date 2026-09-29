@@ -322,3 +322,17 @@ assert.strictEqual(cvs[0]!.learningCycles[1]!.number, 2)
 assert.ok(cvs[0]!.learningCycles[1]!.content.includes('content B'))
 console.log('✓ Module concept Excel parsing + learning Cycles transform passed')
 
+
+// §3.3 data-model-comparison — matrixAxis-Ableitung verhindert leere Gridzeilen
+const axesCsv = ["name,matrix_axis,competencyMatrixId", "Kommunikation,x,mz-1", "Leiterschaft,y,mz-1", "Zukunftstechnologien,y,mz-1"].join(String.fromCharCode(10))
+const axesRows = parseCsv(axesCsv)
+const axesCfg = IMPORT_CONFIGS.matrix_competencies
+const axesMap = autoMapColumns(axesRows.headers, axesCfg.fields)
+assert.strictEqual(axesMap.name, "name")
+assert.strictEqual(axesMap.matrixAxis, "matrix_axis")
+const axesOut = axesCfg.transform(applyColumnMapping(axesRows.rows as any, axesCfg.fields, axesMap)) as any[]
+assert.strictEqual(axesOut.length, 3)
+assert.ok(axesOut.filter((r: any) => r.matrixAxis === "x").length >= 1)
+assert.ok(axesOut.filter((r: any) => r.matrixAxis === "y").length >= 2)
+assert.ok(axesRows.rows.length > 0)
+console.log("✓ matrixCompetency matrixAxis grid derivation passed")

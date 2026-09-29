@@ -142,6 +142,17 @@ export async function initDatabase(): Promise<boolean> {
         ALTER TABLE local_users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
         ALTER TABLE local_users ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) DEFAULT '';
 
+        CREATE TABLE IF NOT EXISTS local_user_cache (
+          id VARCHAR(255) PRIMARY KEY,
+          local_name VARCHAR(255) NOT NULL UNIQUE,
+          email VARCHAR(255) DEFAULT '',
+          supplier_id VARCHAR(512) DEFAULT '',
+          timezone VARCHAR(64) DEFAULT '',
+          roles JSONB NOT NULL DEFAULT '[]'::jsonb,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_user_cache_email ON local_user_cache(email);
+
         CREATE TABLE IF NOT EXISTS entity_acl (
           table_name VARCHAR(100) NOT NULL,
           entity_id VARCHAR(255) NOT NULL,
@@ -226,6 +237,7 @@ export async function getUserByOidc(issuer: string, subject: string): Promise<Lo
       )
       if (res.rows.length > 0) {
         return mapRowToUser(res.rows[0])
+
       }
       return null
     } catch (err) {
@@ -329,6 +341,12 @@ export async function createOrUpdateUser(data: {
        RETURNING *`,
       [id, data.oidc_issuer, data.oidc_subject, name, email, localName, displayName, supplierId, isActive, timezone, JSON.stringify(roles), isAdmin, now]
     )
+    // data-model-comparison.md §3.4 — User-Schattentabelle (reiner Cache,
+    // ersetzt keine lokale Autorisierung). Upsert auf Login/Update.
+    await pool.query(
+      'INSERT INTO local_user_cache (id, local_name, email, supplier_id, timezone, roles, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET email = $3, supplier_id = $4, timezone = $5, roles = $6, updated_at = $7',
+      [id, localName, email, supplierId, timezone, JSON.stringify(roles), now]
+    ).catch((e: any) => console.warn('[db] local_user_cache upsert fehlgeschlagen:', e.message))
     return mapRowToUser(res.rows[0])
   }
 

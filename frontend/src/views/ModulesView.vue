@@ -70,6 +70,14 @@
                   label="Study program(s)" multiple chips variant="outlined" density="compact"
                 />
               </v-col>
+              <v-col cols="12">
+                <!-- data-model-comparison.md §3.1 — Kohorte (Class) ans Modul hängen -->
+                <v-select
+                  v-model="moduleForm.classIds"
+                  :items="classes.map(c => ({ title: c.name ?? c._id, value: c._id ?? c.id }))"
+                  label="Kohorte (Class)" multiple chips variant="outlined" density="compact" clearable
+                />
+              </v-col>
             </v-row>
             <v-textarea v-model="moduleForm.description" label="Description" rows="2" auto-grow variant="outlined" density="compact" />
           </v-form>
@@ -79,6 +87,88 @@
           <v-spacer />
           <v-btn variant="text" @click="moduleDialogOpen = false">Cancel</v-btn>
           <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" :loading="saving" @click="saveModule">Save</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- data-model-comparison.md §3.1/§3.5 — Kohorten (Class) verwalten -->
+    <v-card variant="tonal" class="mt-6 pa-3">
+      <div class="d-flex align-center justify-space-between mb-1">
+        <h2 class="text-h6">Kohorten (Classes)</h2>
+        <div class="d-flex ga-2">
+          <v-btn size="small" color="primary" prepend-icon="mdi-plus" @click="openNewClass">Neue Kohorte</v-btn>
+          <v-btn size="small" variant="outlined" prepend-icon="mdi-migration" :loading="migrating" @click="runMigration">
+            (program, semester) → Class
+          </v-btn>
+        </div>
+      </div>
+      <p class="text-body-2 mb-2">
+        Kohorten gruppieren Module eines Programms in einem Semester — die Solver-Kohorten-Verbindlichkeit hängt an der Class (data-model-comparison.md §3.1).‫
+      </p>
+      <v-table density="compact">
+        <thead>
+          <tr>
+            <th>Name</th><th>Programm</th><th>Semester</th><th>Curriculum-Version</th><th>Module</th><th style="width:90px">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="c in classRows" :key="c._id">
+            <td>{{ c.name }}</td>
+            <td>{{ c.programId || programLabel(c.programIds?.[0]) }}</td>
+            <td>{{ c.semesterId || " — " }}</td>
+            <td>{{ versionNumber(c.curriculumVersionId) || '—' }}</td>
+            <td>{{ (c.moduleIds ?? []).length }}</td>
+            <td>
+              <v-btn size="x-small" icon="mdi-pencil" variant="text" @click="openEditClass(c)" />
+              <v-btn size="x-small" icon="mdi-delete" variant="text" color="error" @click="deleteClass(c)" />
+            </td>
+          </tr>
+          <tr v-if="classRows.length === 0"><td colspan="6" class="text-center">No cohorts yet</td></tr>
+        </tbody>
+      </v-table>
+    </v-card>
+
+    <!-- Neue Kohorte anlegen/bearbeiten -->
+    <v-dialog v-model="classDialogOpen" max-width="620">
+      <v-card>
+        <v-card-title>{{ classEditing ? 'Edit Cohort (Class)' : 'New Cohort (Class)' }}</v-card-title>
+        <v-card-text>
+          <v-form @submit.prevent="saveClass">
+            <v-text-field v-model="classForm.name" label="Name" required variant="outlined" density="compact" />
+            <v-row dense>
+              <v-col cols="12" md="4">
+                <v-text-field v-model="classForm.programId" label="Programm-ID" variant="outlined" density="compact" />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field v-model="classForm.semesterId" label="Semester-ID" variant="outlined" density="compact" />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field v-model.number="classForm.size" label="Grösse" type="number" min="0" variant="outlined" density="compact" />
+              </v-col>
+              <!-- data-model-comparison.md §3.5 — Kohorten erhalten aktive Curriculum-Version -->
+              <v-col cols="12">
+                <v-select
+                  v-model="classForm.curriculumVersionId"
+                  :items="curriculumVersions.map((v: CurriculumVersion) => ({ title: versionNumber(v._id ?? v.id) ?? v.name, value: v._id ?? v.id }))"
+                  label="Curriculum-Version (aktiv für diese Kohorte)" variant="outlined" density="compact" clearable
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-select
+                  v-model="classForm.moduleIds"
+                  :items="modules.map(m => ({ title: m.code ? `${m.code} – ${m.name}` : m.name, value: m._id ?? m.id }))"
+                  label="Module dieser Kohorte" multiple chips variant="outlined" density="compact"
+                />
+              </v-col>
+            </v-row>
+            <v-textarea v-model="classForm.description" label="Description" rows="1" auto-grow variant="outlined" density="compact" />
+          </v-form>
+        </v-card-text>
+        <v-divider />
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="classDialogOpen = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" :loading="classSaving" @click="saveClass">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -97,6 +187,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+// data-model-comparison.md §3.1/§3.5 — Class (Kohorte) Verwaltung in CourseWeaver
+import { useClasses, emptyClass } from '@/composables/useClasses'
+import { useCurriculumVersions } from '@/composables/useCurriculumVersions'
+import type { ClassEntity } from '@/types/curriculumClass'
+import type { CurriculumVersion } from '@/stores/curriculum'
 import { storeToRefs } from 'pinia'
 import { useCurriculumStore } from '@/stores/curriculum'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
@@ -109,6 +204,102 @@ const { modules } = storeToRefs(store)
 const studyPrograms = computed(() => (store.programs ?? []) as unknown as StudyProgram[])
 
 const csvImportDialogOpen = ref(false)
+
+// ─── data-model-comparison.md §3.1/§3.5 — Class (Kohorte) Verwaltung ───
+const { classes, fetchClasses, addClass, updateClass, removeClass } = useClasses()
+const { curriculumVersions, fetchCurriculumVersions: fetchVersions } = useCurriculumVersions()
+
+const classRows = computed(() => classes.value.map(c => ({ ...c, _id: c._id ?? c.id ?? '' })))
+
+const classDialogOpen = ref(false)
+const classEditing = ref(false)
+const classSaving = ref(false)
+const migrating = ref(false)
+const classForm = ref<ClassEntity>(emptyClass())
+
+onMounted(() => {
+  void fetchClasses()
+  void fetchVersions()
+})
+
+function openNewClass() {
+  classEditing.value = false
+  classForm.value = emptyClass()
+  classDialogOpen.value = true
+}
+
+function openEditClass(c: ClassEntity) {
+  classEditing.value = true
+  classForm.value = {
+    ...(c.id ? { id: c.id, _id: c._id } : {}),
+    name: c.name ?? '',
+    programId: c.programId ?? c.programIds?.[0] ?? '',
+    semesterId: c.semesterId ?? '',
+    curriculumVersionId: c.curriculumVersionId,
+    size: c.size ?? 0,
+    moduleIds: [...(c.moduleIds ?? [])],
+    description: c.description ?? '',
+    code: c.code,
+  }
+  classDialogOpen.value = true
+}
+
+async function saveClass() {
+  classSaving.value = true
+  try {
+    const row: ClassEntity = {
+      ...(classForm.value.id ? { id: classForm.value.id, _id: classForm.value._id } : {}),
+      name: classForm.value.name,
+      programId: classForm.value.programId,
+      programIds: classForm.value.programId ? [classForm.value.programId] : [],
+      semesterId: classForm.value.semesterId,
+      curriculumVersionId: classForm.value.curriculumVersionId,
+      size: classForm.value.size,
+      moduleIds: [...(classForm.value.moduleIds ?? [])],
+      description: classForm.value.description,
+      code: classForm.value.code,
+    }
+    if (classEditing.value && row.id) await updateClass(row)
+    else await addClass(row)
+    snackbarText.value = classEditing.value ? 'Kohorte aktualisiert' : 'Kohorte angelegt'
+    snackbar.value = true
+    classDialogOpen.value = false
+  } finally {
+    classSaving.value = false
+  }
+}
+
+async function deleteClass(c: ClassEntity) {
+  const id = c.id ?? c._id
+  if (!id) return
+  if (!confirm(`Kohorte "${c.name}" löschen?`)) return
+  await removeClass(id)
+  snackbarText.value = 'Kohorte gelöscht'
+  snackbar.value = true
+}
+
+function programLabel(id?: string): string {
+  return id ?? '—'
+}
+
+function versionNumber(id?: string): string | undefined {
+  const v = curriculumVersions.value.find(x => (x._id ?? x.id) === id)
+  return v ? `v${v.versionNumber}` : undefined
+}
+
+async function runMigration() {
+  migrating.value = true
+  try {
+    // Die eigentliche Migration läuft serverseitig (server/migrate-classes.ts),
+    // hier laden wir die aktuellen Kohorten neu.
+    await fetchClasses()
+    snackbarText.value = classes.value.length + ' Kohorten geladen (Server-Skript server/migrate-classes.ts)'
+    snackbar.value = true
+  } finally {
+    migrating.value = false
+  }
+}
+
 const snackbar = ref(false)
 const snackbarText = ref('')
 
@@ -137,12 +328,13 @@ const moduleForm = ref<{
   contactHours?: number
   selfStudyHours?: number
   studyProgramIds?: string[]
+  classIds?: string[]
   description?: string
-}>({ code: '', name: '' })
+}>({ code: '', name: '', classIds: [] })
 
 function openNewModule(): void {
   editing.value = false
-  moduleForm.value = { code: '', name: '' }
+  moduleForm.value = { code: '', name: '', classIds: [] }
   moduleDialogOpen.value = true
 }
 
@@ -164,7 +356,7 @@ async function saveModule(): Promise<void> {
     snackbarText.value = `${editing.value ? 'Module aktualisiert' : 'Modul angelegt'}: ${form.name}`
     snackbar.value = true
     editing.value = false
-    moduleForm.value = { code: '', name: '' }
+    moduleForm.value = { code: '', name: '', classIds: [] }
   } catch (e: any) {
     snackbarText.value = e.message || 'Fehler beim Speichern des Moduls'
     snackbar.value = true
@@ -184,6 +376,7 @@ function openEditModule(m: any): void {
     contactHours: m.contactHours ?? undefined,
     selfStudyHours: m.selfStudyHours ?? undefined,
     studyProgramIds: m.studyProgramIds ?? [],
+    classIds: m.classIds ?? [],
     description: m.description ?? '',
   }
   moduleDialogOpen.value = true

@@ -4,11 +4,14 @@ export interface ClassEntity extends AclInfo {
   id?: string
   _id?: string
   name: string
+  /** Zielmodell (Vergleichstabelle): Programm-Kohorte. Legacy: programIds[] */
+  programId?: string
   code?: string
   description?: string
   semesterId?: string
   curriculumVersionId?: string
   degreeId?: string
+  /** @deprecated Use programId instead */
   programIds?: string[]
   moduleIds?: string[]
   contact?: string

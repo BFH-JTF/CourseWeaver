@@ -21,7 +21,8 @@ import { authRouter } from './auth'
 import { usersRouter } from './users'
 import { AuthenticatedRequest, extractOidcClaims } from '../auth'
 
-const SUPERUSER_TABLES = new Set(['curriculum_versions', 'semesters', 'lessons', 'lecturers', 'weeks', 'schedule_entries'])
+const SUPERUSER_TABLES = new Set(['curriculum_versions', 'classes',
+ 'semesters', 'lessons', 'lecturers', 'weeks', 'schedule_entries'])
 
 /**
  * Allowlist gültiger Entity-Tabellen (Review #5): beliebige Tabellennamen
@@ -31,10 +32,11 @@ const SUPERUSER_TABLES = new Set(['curriculum_versions', 'semesters', 'lessons',
 export const ALLOWED_ENTITY_TABLES = new Set([
   'curriculum_versions',
   'study_programs',
+  'curriculum_modules',
   'programs',
   'modules',
   'learning_cycles',
-  'curriculum_modules',
+  'classes',
   'semesters',
   'terms',
   'themes',
