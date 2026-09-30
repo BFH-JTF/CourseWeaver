@@ -349,7 +349,9 @@ async function runCandidates(): Promise<void> {
   errorInfo.value = null
   try {
     const cycles = collectCycles()
-    if (cycles.length === 0) throw new Error('Keine Learning Cycles vorhanden — bitte zuerst Daten importieren')
+    if (cycles.length === 0) {
+      throw new Error(loadError.value ? 'Learning Cycles konnten nicht geladen werden (siehe Ladefehler) — kein Import nötig' : 'Für das gewählte Programm sind keine Learning Cycles vorhanden — bitte Programmfilter prüfen oder Daten in Modules pflegen')
+    }
     const candRes = await fetch('/api/mapping/candidates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -475,11 +477,16 @@ function toggleCycle(id: string): void {
 
 async function loadModules(): Promise<void> {
   loadError.value = null
+  let loadFailure: string | null = null
   try {
     // Primärquelle: dieselben Datensätze wie in der Modules-Ansicht
     // (canonical lc_contents — velle Bloom-Lernziele, 4-Phasen-Inhalte, Methoden).
     const program = selectedProgramId.value ?? ''
     const bridge = await fetch('/api/mapping/cycles-from-modules' + (program ? '?program=' + encodeURIComponent(program) : ''))
+    if (!bridge.ok) {
+      const t = await bridge.json().catch(() => null as any)
+      loadFailure = 'Bridge /api/mapping/cycles-from-modules: HTTP ' + bridge.status + (t?.error ? ' (' + t.error + ')' : '')
+    }
     if (bridge.ok) {
       const data = await bridge.json()
       const bridgeCycles = (data.cycles ?? []) as any[]
@@ -515,7 +522,9 @@ async function loadModules(): Promise<void> {
       }
     }
     // Fallback 1: Excel-Quelle (curriculum_modules)
-    const stored: Record<string, any>[] = await fetch('/api/curriculum_modules').then(r => (r.ok ? r.json() : []))
+    const storedRes = await fetch('/api/curriculum_modules')
+    if (!storedRes.ok) loadFailure = 'Excel-Quelle /api/curriculum_modules: HTTP ' + storedRes.status
+    const stored: Record<string, any>[] = storedRes.ok ? await storedRes.json() : []
     if (stored.length) {
       modules.value = (stored as any[]).map(m => ({
         id: m.id,
@@ -527,7 +536,9 @@ async function loadModules(): Promise<void> {
       }) as CurriculumModuleEntry)
     } else {
       // Fallback 2: Legacy flat learning_cycles
-      const legacy = (await fetch('/api/learning_cycles').then(r => (r.ok ? r.json() : []))) as any[]
+      const legacyRes = await fetch('/api/learning_cycles')
+      if (!legacyRes.ok) loadFailure = 'Legacy /api/learning_cycles: HTTP ' + legacyRes.status
+      const legacy = (legacyRes.ok ? await legacyRes.json() : []) as any[]
       const byModule = new Map<string, CurriculumModuleEntry>()
       for (const lc of legacy) {
         let mod = byModule.get(lc.moduleId)
@@ -541,6 +552,9 @@ async function loadModules(): Promise<void> {
     }
     if (!selectedProgramId.value && modules.value.length) {
       selectedProgramId.value = modules.value[0]!.studyProgramId
+    }
+    if (!modules.value.length && loadFailure) {
+      throw new Error('Learning Cycles konnten nicht geladen werden: ' + loadFailure + ' — bitte Datenbank (PostgreSQL) prüfen')
     }
   } catch (e: any) {
     loadError.value = e.message || 'Fehler beim Laden'
