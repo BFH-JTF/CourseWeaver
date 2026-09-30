@@ -13,6 +13,7 @@ export const de: Record<string, string> = {
   'nav.taxonomy': 'Taxonomy',
   'nav.workload': 'Workload',
   'nav.modules': 'Modules',
+  'nav.coverage': 'Abdeckung',
   'nav.mapping': 'Mapping',
   'nav.schedule': 'Planung',
   'nav.todos': 'Todos',

@@ -13,7 +13,7 @@
     "typecheck": "vue-tsc --noEmit -p frontend/tsconfig.json && tsc -p tsconfig.server.json --noEmit",
     "lint": "eslint frontend/src/ --ext .ts,.vue",
     "lint:fix": "eslint frontend/src/ --ext .ts,.vue --fix",
-    "test": "tsx --tsconfig frontend/tsconfig.json frontend/src/utils/__tests__/csvImport.test.ts && tsx server/test/api.test.ts && tsx server/test/mapping.test.ts",
+    "test": "tsx --tsconfig frontend/tsconfig.json frontend/src/utils/__tests__/csvImport.test.ts && tsx server/test/api.test.ts && tsx server/test/mapping.test.ts && tsx --tsconfig tsconfig.server.json server/test/coverage.test.ts",
     "seed": "tsx server/seed-mock.ts"
   },
   "dependencies": {

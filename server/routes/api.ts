@@ -58,6 +58,9 @@ export const ALLOWED_ENTITY_TABLES = new Set([
   'objective_mappings',
   'competencies',
   'competency_frameworks',
+  'competency_matrices',
+  'matrix_competencies',
+  'module_competency_links',
   'proof_of_knowledge',
 
   'proofs_of_competency',

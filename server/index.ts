@@ -61,7 +61,9 @@ if (apiToken) {
 
 // REST API routes
 import { mappingRouter } from './routes/mapping.js'
+import { coverageRouter } from './routes/coverage.js'
 app.use('/api/mapping', mappingRouter)
+app.use('/api/coverage', coverageRouter)
 app.use('/api', apiRouter)
 
 // Serve production static assets if available

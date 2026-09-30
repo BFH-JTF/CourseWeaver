@@ -43,6 +43,7 @@ export const EntityTables = {
   STUDY_PROGRAM: 'study_programs',
   CLASS: 'classes',
   LC_CONTENT: 'lc_contents',
+  MODULE_COMPETENCY_LINK: 'module_competency_links',
 } as const
 
 export type EntityTableName = (typeof EntityTables)[keyof typeof EntityTables]

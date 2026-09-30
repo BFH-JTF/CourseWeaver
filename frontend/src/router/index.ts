@@ -53,6 +53,12 @@ const router = createRouter({
           component: () => import('@/views/TaxonomyView.vue'),
         },
         {
+          // Traceability / Abdeckung / Luecken (docs/curriculum-mapping-visualizations.md)
+          path: 'coverage',
+          name: 'coverage',
+          component: () => import('@/views/CoverageView.vue'),
+        },
+        {
           // Legacy-Pfad — zeigt auf denselben 5-Schritte-Screen wie /curriculum;
           // aus dem Nav entfernt, aber für alte Bookmarks/API-DoC-Links erhalten.
           path: 'curriculum-map',
